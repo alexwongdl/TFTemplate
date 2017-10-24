@@ -1,2 +1,4 @@
 .idea/
 TFTemplate.iml
+myutil/__pycache__/
+tfutil/__pycache__/
