@@ -21,7 +21,7 @@ if __name__ == '__main__':
     arg_parse_print(FLAGS)
 
     if FLAGS.type == 'train_mnist':
-        tl.files.load_mnist_dataset()
+        # tl.files.load_mnist_dataset()
         train_mnist(FLAGS)
     elif FLAGS.type == 'test_mnist':
         test_mnist(FLAGS)
