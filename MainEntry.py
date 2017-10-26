@@ -28,10 +28,10 @@ if __name__ == '__main__':
     parser.add_argument('--decay_rate', default=0.9, help='decay rate')  #exponential_decay  decayed_learning_rate = learning_rate * decay_rate ^ (global_step / decay_steps)
 
     parser.add_argument('--input_dir', default=None, help='input data path', type=str)
-    parser.add_argument('--model_dir', default=None, help='model dir')
+    parser.add_argument('--model_dir', default=None, help='model dir', type=str)
+    parser.add_argument('--save_model_step', default=10000, help='save check point after ** steps', type=int)
     parser.add_argument('--summary_dir', default=None, help='summary dir')
     parser.add_argument('--checkpoint', default=None, help='pretrained model')
-
     ## params for train mnist
 
     ## params for test mnist

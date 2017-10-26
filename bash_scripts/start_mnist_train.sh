@@ -11,3 +11,4 @@ python MainEntry.py \
     --input_dir=../data/MNIST \
     --model_dir=../mnist_model \
     --summary_dir=../mnist_summary \
+    --save_model_step=10000
