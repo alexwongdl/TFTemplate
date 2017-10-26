@@ -3,3 +3,4 @@ TFTemplate.iml
 myutil/__pycache__/
 tfutil/__pycache__/
 data/
+examples/__pycache__/
