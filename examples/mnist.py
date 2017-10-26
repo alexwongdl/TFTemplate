@@ -7,7 +7,7 @@ import tensorlayer as tl
 
 def train_mnist(FLAGS):
     print("start_train_mnist")
-    X_train, y_train, X_val, y_val, X_test, y_test = tl.files.load_mnist_dataset(shape=(-1,28,28),path=FLAGS.input_path)
+    X_train, y_train, X_val, y_val, X_test, y_test = tl.files.load_mnist_dataset(shape=(-1,28,28),path=FLAGS.input_dir)
 
 def test_mnist(FLAGS):
     print("start_test_mnist")
