@@ -6,4 +6,7 @@ if __name__ == '__main__':
     print(X_train.shape)
     print(X_val.shape)
     print(X_test.shape)
-    print(X_test[0][:][:])
+    # print(X_test[0])
+    # print(y_test.shape)
+    # print(y_test.ndim)
+    # print(y_test[1:10])

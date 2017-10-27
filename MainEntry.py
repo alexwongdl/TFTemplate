@@ -10,10 +10,13 @@ commom steps:
 5.training、valid、save check point in loops
 6.testing
 """
+import os
 import argparse
 
 from examples.mnist import *
 from myutil.myprint import *
+
+os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -26,19 +29,20 @@ if __name__ == '__main__':
     parser.add_argument('--max_iter', default=20000, help='max training iterate times', type=int)
     parser.add_argument('--batch_size', default=16, help='batch size', type=int)
     # learning raate  exponential_decay  decayed_learning_rate = learning_rate * decay_rate ^ (global_step / decay_steps)
-    parser.add_argument('--learning_rate', default=0.01, help='learning rate')
-    parser.add_argument('--decay_step', default=10000, help='decay step')
-    parser.add_argument('--decay_rate', default=0.9, help='decay rate')
+    parser.add_argument('--learning_rate', default=0.01, help='learning rate', type=float)
+    parser.add_argument('--decay_step', default=10000, help='decay step', type=int)
+    parser.add_argument('--decay_rate', default=0.9, help='decay rate', type=float)
 
     # model log/save path
     parser.add_argument('--input_dir', default=None, help='input data path', type=str)
     parser.add_argument('--save_model_dir', default=None, help='model dir', type=str)
     parser.add_argument('--save_model_freq', default=10000, help='save check point frequence', type=int)
-    parser.add_argument('--summary_dir', default=None, help='summary dir')
-    parser.add_argument('--summary_freq', default=100, help='summary frequency')
-    parser.add_argument('--print_info_freq', default=100, help='print training info frequency')
+    parser.add_argument('--summary_dir', default=None, help='summary dir', type=str)
+    parser.add_argument('--summary_freq', default=100, help='summary frequency', type=int)
+    parser.add_argument('--print_info_freq', default=100, help='print training info frequency', type=int)
     # load checkpoint for initialization or inferencing if checkpoint is not None
-    parser.add_argument('--checkpoint', default=None, help='pretrained model')
+    parser.add_argument('--checkpoint', default=None, help='pretrained model', type=str)
+    parser.add_argument('--valid_freq', default=10000, help='validate frequence', type=int)
 
     """
     params for train mnist
