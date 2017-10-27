@@ -9,6 +9,6 @@ python MainEntry.py \
     --decay_step = 10000 \
     --decay_rate = 0.9 \
     --input_dir=../data/MNIST \
-    --model_dir=../mnist_model \
-    --summary_dir=../mnist_summary \
-    --save_model_step=10000
+    --save_model_dir=../mnist_model \
+    --save_model_freq=10000 \
+    --summary_dir=../mnist_summary

@@ -6,6 +6,8 @@ test cnn on mnist dataset
 import tensorflow as tf
 import tensorlayer as tl
 import math
+import time
+import os
 
 
 def cnn_model(x_hole, y_hole, reuse, is_training):
@@ -69,11 +71,38 @@ def train_mnist(FLAGS):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=0, saver=None)
+    saver = tf.train.Saver()
     with sv.managed_session(config) as sess:
         print('start optimization...')
+        # load check point if FLAGS.checkpoint is not None
+        if FLAGS.checkpoint is not None:
+            saver.restore(sess, FLAGS.checkpoint)
 
+        for step in range(FLAGS.max_iter):
+            start_time = time.time()
+            fetches = {'train_op': train_op, 'global_step': global_step}
+            if (step + 1) % FLAGS.print_info_freq == 0:
+                fetches['cost'] = cost
+                fetches['learning_rate'] = learning_rate
+
+            if(step + 1) % FLAGS.summary_freq == 0:
+                fetches['summary_op'] = sv.summary_op
+
+            result = sess.run(fetches)
+
+            if (step + 1) % FLAGS.print_info_freq == 0:
+                epoch = math.ceil(result['global_step']  * 1.0 / steps_per_epoch)
+                rate = FLAGS.batch_size / (time.time() - start_time)
+                print("epoch:{}\t, rate:{} image/sec".format(epoch, rate))
+                print("cost:{}".format(result['cost']))
+                print("learning rate:{}".format(result['learning_rate']))
+
+            if(step + 1) % FLAGS.save_model_freq == 0:
+                saver.save(sess, os.path.join(FLAGS.save_model_dir, 'model'), global_step = global_step)
 
         print('optimization finished!')
+
+    # 6.testing
 
 
 def test_mnist(FLAGS):
