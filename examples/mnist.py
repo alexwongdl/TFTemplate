@@ -72,6 +72,8 @@ def train_mnist(FLAGS):
     global_step = tf.contrib.framework.get_or_create_global_step()
     learning_rate = tf.train.exponential_decay(FLAGS.learning_rate, global_step, FLAGS.decay_step, FLAGS.decay_rate,
                                                staircase=True)
+    # learning_rate = tf.train.polynomial_decay(FLAGS.learning_rate, global_step, FLAGS.decay_step,
+    #                                           end_learning_rate=0.00001)
     incr_global_step = tf.assign(global_step, global_step + 1)
 
     train_params = net.all_params
@@ -135,7 +137,7 @@ def train_mnist(FLAGS):
                     test_result = sess.run(fetches, feed_dict={x_place: batch_img_test, y_place: batch_label_test})
                     total_acc += test_result['accuracy'] * FLAGS.batch_size
                     total_num += FLAGS.batch_size
-                    if i< 10:
+                    if i < 10:
                         print("label:{}".format(batch_label_test))
                         print("predict:{}".format(test_result['y_pred']))
                 valid_acc = total_acc / total_num
