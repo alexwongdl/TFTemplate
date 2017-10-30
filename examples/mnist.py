@@ -11,10 +11,10 @@ import tensorflow as tf
 import tensorlayer as tl
 
 
-def cnn_model(x_hole, y_hole, reuse, is_training):
+def cnn_model(x_input, y_input, reuse, is_training):
     with tf.variable_scope('cnn_model', reuse=reuse):
         tl.layers.set_name_reuse(reuse)
-        net = tl.layers.InputLayer(x_hole, name='input')
+        net = tl.layers.InputLayer(x_input, name='input')
 
         net = tl.layers.Conv2dLayer(net, act=tf.identity, shape=[5, 5, 1, 64], name='conv_1')
         net = tl.layers.BatchNormLayer(net, is_train=is_training, act=tf.nn.relu, name='batch_norm_1')
@@ -30,13 +30,13 @@ def cnn_model(x_hole, y_hole, reuse, is_training):
         net = tl.layers.DenseLayer(net, n_units=10, act=tf.identity, name='dense_3')
 
         y_pred = net.outputs
-        cost_entropy = tl.cost.cross_entropy(y_pred, y_hole, name='cost_entropy')
+        cost_entropy = tl.cost.cross_entropy(y_pred, y_input, name='cost_entropy')
         L2 = 0
         for w in tl.layers.get_variables_with_name('cnn_model', True, True):
             L2 += tf.contrib.layers.l2_regularizer(0.004)(w)
         cost = cost_entropy + L2
 
-        correct_prediction = tf.equal(tf.argmax(y_pred, 1), y_hole)
+        correct_prediction = tf.equal(tf.argmax(y_pred, 1), y_input)
         acc = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         y_pred_softmax = tf.argmax(y_pred, 1)
 
@@ -44,7 +44,7 @@ def cnn_model(x_hole, y_hole, reuse, is_training):
 
 
 def train_mnist(FLAGS):
-    print("start_train_mnist")
+    print("start train mnist model")
     # 2.load data
     X_train, y_train, X_val, y_val, X_test, y_test = tl.files.load_mnist_dataset(shape=(-1, 28, 28),
                                                                                  path=FLAGS.input_dir)
@@ -55,16 +55,16 @@ def train_mnist(FLAGS):
     x_batch, y_batch = tf.train.shuffle_batch([x_queue, y_queue], FLAGS.batch_size, capacity=32, min_after_dequeue=10,
                                               num_threads=12)
 
-    x_hole = tf.expand_dims(tf.convert_to_tensor(x_batch, dtype=tf.float32, name='x_hole'), 3)
-    y_hole = tf.cast(tf.convert_to_tensor(y_batch, dtype=tf.int32, name='y_hole'), dtype=tf.int64)
+    x_input = tf.expand_dims(tf.convert_to_tensor(x_batch, dtype=tf.float32, name='x_input'), 3)
+    y_input = tf.cast(tf.convert_to_tensor(y_batch, dtype=tf.int32, name='y_input'), dtype=tf.int64)
 
     # 3.build graph：including loss function，learning rate decay，optimization operation
-    net, cost, _, _ = cnn_model(x_hole, y_hole, False, is_training=True)  # train
+    net, cost, _, _ = cnn_model(x_input, y_input, False, is_training=True)  # train
 
     x_place = tf.placeholder(dtype=tf.float32, shape=[None, 28, 28], name='x_placeholder')
     y_place = tf.placeholder(dtype=tf.int32, shape=[None, ], name='y_placeholder')
-    x_batch_val = tf.expand_dims(tf.convert_to_tensor(x_place, dtype=tf.float32, name='x_hole'), 3)
-    y_batch_val = tf.cast(tf.convert_to_tensor(y_place, dtype=tf.int32, name='y_hole'), dtype=tf.int64)
+    x_batch_val = tf.expand_dims(tf.convert_to_tensor(x_place, dtype=tf.float32, name='x_batch'), 3)
+    y_batch_val = tf.cast(tf.convert_to_tensor(y_place, dtype=tf.int32, name='y_batch'), dtype=tf.int64)
     _, _, acc, y_pred = cnn_model(x_batch_val, y_batch_val, True, is_training=False)  # validate/test
     validate_batch_num = int(X_val.shape[0] / FLAGS.batch_size)
 
@@ -81,7 +81,7 @@ def train_mnist(FLAGS):
             cost, var_list=train_params)
 
     # 4.summary
-    input_images = tf.image.convert_image_dtype(x_hole, dtype=tf.uint8, saturate=True)
+    input_images = tf.image.convert_image_dtype(x_input, dtype=tf.uint8, saturate=True)
     with tf.name_scope("input_summary"):
         tf.summary.image("input_summary", input_images)
     tf.summary.scalar('cost', cost)
@@ -145,8 +145,8 @@ def train_mnist(FLAGS):
 
         print('optimization finished!')
 
-        # 6.testing
+        # TODO: 6.testing
 
 
 def test_mnist(FLAGS):
-    print("start_test_mnist")
+    print("start test mnist model")
