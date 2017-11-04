@@ -14,18 +14,23 @@ import ptb_reader
 
 def rnn_model(x_input, y_input, reuse, is_training):
     print('construct rnn model')
+    # rnn_mode - the low level implementation of lstm cell: one of CUDNN, BASIC, or BLOCK, representing cudnn_lstm, basic_lstm, and lstm_block_cell classes.
     #TODO: construct graph
+
 
 def train_rnn(FLAGS):
     print("start train rnn model")
     # 2.load data
     train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(path=FLAGS.input_dir)
-
-    ##TODO: input queue
+    ## input queue
+    x_train, y_train = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size, num_steps=FLAGS.num_steps)
 
     # 3.build graph：including loss function，learning rate decay，optimization operation
-    net, cost, _, _ = rnn_model(x_input, y_input, False, is_training=True)  # train
-    _, _, acc, y_pred = rnn_model(x_batch_val, y_batch_val, True, is_training=False)  # validate/test
+    net, cost, _, _ = rnn_model(x_train, y_train, False, is_training=True)  # train
+
+    x_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='x_test')
+    y_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='y_test')
+    _, _, acc, y_pred = rnn_model(x_test, y_test, True, is_training=False)  # validate/test
     validate_batch_num = int(X_val.shape[0] / FLAGS.batch_size)
 
     steps_per_epoch = int(math.ceil(X_train.shape[0] / FLAGS.batch_size))

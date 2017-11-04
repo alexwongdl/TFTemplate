@@ -6,6 +6,7 @@ import sys
 import collections
 import os
 from  tfutil import data_batch_fetch
+import numpy as np
 
 
 def _read_words(filename):
@@ -62,12 +63,32 @@ def ptb_raw_data(data_path=None):
     return train_data, test_data, valid_data, word_to_id, id_to_word
 
 
+def ptb_data_batch(raw_data, batch_size, num_steps):
+    """
+    构造[batch, num_steps]格式数据
+    :param raw_data:
+    :param batch_size:
+    :param num_steps:
+    :return:
+    """
+    data_len = len(raw_data)
+    batch_len = data_len // batch_size
+    data = np.reshape(raw_data[0:batch_size * batch_len], [batch_size, batch_len])
+    epoch_size = (batch_len - 1) // num_steps
+    x_ = []
+    y_ = []
+    for i in range(epoch_size):
+        x_.append(data[:, i * num_steps: (i + 1) * num_steps])
+        y_.append(data[:, i * num_steps + 1: (i + 1) * num_steps + 1])
+    return x_, y_, epoch_size
+
+
 def ptb_data_queue(raw_data, batch_size, num_steps):
     """
     range_input_producer构造数据输入queu
     :param raw_data:
     :param batch_size:
-    :param num_steps:
+    :param num_steps:一个句子中的单词个数
     :return:
     """
     raw_data = tf.convert_to_tensor(raw_data, name="raw_data", dtype=tf.int32)
@@ -85,7 +106,6 @@ def ptb_data_queue(raw_data, batch_size, num_steps):
 
 
 def test_ptb_data_queue():
-
     data_path = "../data/ptb"
     data_path = os.path.abspath(data_path)
     # data_path = "/home/recsys/hzwangjian1/learntf/ptb_data"
@@ -108,8 +128,28 @@ def test_ptb_data_queue():
     sess.close()
 
 
+def test_ptb_test_data():
+    data_path = "../data/ptb"
+    data_path = os.path.abspath(data_path)
+    # data_path = "/home/recsys/hzwangjian1/learntf/ptb_data"
+    train_data, test_data, valid_data, word_to_id, id_to_word = ptb_raw_data(data_path)
+    print(len(train_data))
+
+    x, y, epoch_size = ptb_data_batch(test_data, 20, 10)
+
+    for i in range(epoch_size):
+        x_batch = x[i]
+        y_batch = y[i]
+        for j in range(len(x_batch)):
+            x_words = [id_to_word[id] for id in x_batch[j] if id in id_to_word]
+            print("x_words:" + " ".join(x_words))
+            y_words = [id_to_word[id] for id in y_batch[j] if id in id_to_word]
+            print("y_words:" + " ".join(y_words))
+
 if __name__ == "__main__":
     # str_list =_read_words("E://data/ptb/data/ptb.test.txt")
     # for str in str_list:
     #     print(str)
-    test_ptb_data_queue()
+
+    # test_ptb_data_queue()
+    test_ptb_test_data()
