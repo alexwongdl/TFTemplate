@@ -68,7 +68,7 @@ def ptb_data_batch(raw_data, batch_size, num_steps):
     构造[batch, num_steps]格式数据
     :param raw_data:
     :param batch_size:
-    :param num_steps:
+    :param num_steps:一个句子中的单词个数
     :return:
     """
     data_len = len(raw_data)
@@ -102,7 +102,7 @@ def ptb_data_queue(raw_data, batch_size, num_steps):
     x = tf.strided_slice(data, [0, index * num_steps], [batch_len, (index + 1) * num_steps])
     y = tf.strided_slice(data, [0, index * num_steps + 1], [batch_len, (index + 1) * num_steps + 1])
 
-    return x, y
+    return x, y, epoch_size
 
 
 def test_ptb_data_queue():
@@ -112,7 +112,7 @@ def test_ptb_data_queue():
     train_data, test_data, valid_data, word_to_id, id_to_word = ptb_raw_data(data_path)
     print(len(train_data))
     sess = tf.Session()
-    x, y = ptb_data_queue(train_data, batch_size=20, num_steps=10)
+    x, y, _ = ptb_data_queue(train_data, batch_size=20, num_steps=10)
     coord, threads = data_batch_fetch.start_queue_runner(sess)
     for i in range(10):
         print("round :" + str(i))
@@ -151,5 +151,5 @@ if __name__ == "__main__":
     # for str in str_list:
     #     print(str)
 
-    # test_ptb_data_queue()
-    test_ptb_test_data()
+    test_ptb_data_queue()
+    # test_ptb_test_data()

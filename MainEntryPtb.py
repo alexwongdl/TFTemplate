@@ -53,6 +53,9 @@ if __name__ == '__main__':
     # parser.add_argument('--max_epoch', default=14, help='the number of epochs trained with the initial learning rate', type=int) -- decay step
     parser.add_argument('--max_max_epoch', default=55, help='the total number of epochs for training', type=int)
     parser.add_argument('--keep_prob', default=0.35, help='the probability of keeping weights in the dropout layer', type=float)
+    # vocabulary
+    parser.add_argument('--vocab_size', default=10000, help='vocabulary size', type=int)
+    parser.add_argument('--vocab_dim', default=200, help='vocabulary dimension', type=int)
 
     FLAGS = parser.parse_args()
     arg_parse_print(FLAGS)

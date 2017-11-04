@@ -12,28 +12,36 @@ import tensorlayer as tl
 
 import ptb_reader
 
-def rnn_model(x_input, y_input, reuse, is_training):
+
+def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
     print('construct rnn model')
     # rnn_mode - the low level implementation of lstm cell: one of CUDNN, BASIC, or BLOCK, representing cudnn_lstm, basic_lstm, and lstm_block_cell classes.
-    #TODO: construct graph
-
+    # TODO: construct graph
+    initializer = tf.random_normal_initializer(-FLAGS.init_scale, FLAGS.init_scale)
+    with tf.variable_scope('ptb_model', reuse=reuse):
+        tl.layers.set_name_reuse(reuse)
+        net = tl.layers.EmbeddingInputlayer(x_input, vocabulary_size=FLAGS.vocab_size, embedding_size=FLAGS.vocab_dim, E_init= initializer, name='embedding')
+        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_training= is_training, name='dropout_embed')
+        
 
 def train_rnn(FLAGS):
     print("start train rnn model")
     # 2.load data
     train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(path=FLAGS.input_dir)
     ## input queue
-    x_train, y_train = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size, num_steps=FLAGS.num_steps)
+    x_train, y_train, train_epoch_size = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size, num_steps=FLAGS.num_steps)
 
     # 3.build graph：including loss function，learning rate decay，optimization operation
     net, cost, _, _ = rnn_model(x_train, y_train, False, is_training=True)  # train
 
     x_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='x_test')
     y_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='y_test')
+    x_valid_data, y_valid_data, valid_epoch_size = ptb_reader.ptb_data_batch(valid_data, FLAGS.batch_size,
+                                                                             FLAGS.num_steps)
     _, _, acc, y_pred = rnn_model(x_test, y_test, True, is_training=False)  # validate/test
-    validate_batch_num = int(X_val.shape[0] / FLAGS.batch_size)
+    validate_batch_num = valid_epoch_size
 
-    steps_per_epoch = int(math.ceil(X_train.shape[0] / FLAGS.batch_size))
+    steps_per_epoch = train_epoch_size
     global_step = tf.contrib.framework.get_or_create_global_step()
     learning_rate = tf.train.exponential_decay(FLAGS.learning_rate, global_step, FLAGS.decay_step, FLAGS.decay_rate,
                                                staircase=True)
@@ -45,7 +53,7 @@ def train_rnn(FLAGS):
     train_op = tf.train.AdamOptimizer(learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08, use_locking=False).minimize(
             cost, var_list=train_params)
 
-    # 4.summary
+    # 4.TODO:summary
     input_images = tf.image.convert_image_dtype(x_input, dtype=tf.uint8, saturate=True)
     with tf.name_scope("input_summary"):
         tf.summary.image("input_summary", input_images)
@@ -96,15 +104,17 @@ def train_rnn(FLAGS):
                 fetches['y_pred'] = y_pred
                 total_acc = 0
                 total_num = 0
-                for i in range(validate_batch_num - 1):
-                    batch_img_test = X_val[i * FLAGS.batch_size:(i + 1) * FLAGS.batch_size]
-                    batch_label_test = y_val[i * FLAGS.batch_size:(i + 1) * FLAGS.batch_size]
-                    test_result = sess.run(fetches, feed_dict={x_place: batch_img_test, y_place: batch_label_test})
+                for i in range(validate_batch_num):
+                    batch_x_test = x_valid_data[i]
+                    batch_y_test = y_valid_data[i]
+                    test_result = sess.run(fetches, feed_dict={x_test: batch_x_test, y_test: batch_y_test})
                     total_acc += test_result['accuracy'] * FLAGS.batch_size
                     total_num += FLAGS.batch_size
                     if i < 10:
-                        print("label:{}".format(batch_label_test))
-                        print("predict:{}".format(test_result['y_pred']))
+                        print('check data')
+                        #TODO:
+                        # print("label:{}".format(batch_label_test))
+                        # print("predict:{}".format(test_result['y_pred']))
                 valid_acc = total_acc / total_num
                 print("valid accuracy:{:.5f} for {} images".format(valid_acc, total_num))
 
