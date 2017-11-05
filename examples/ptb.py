@@ -111,6 +111,11 @@ def train_rnn(FLAGS):
     sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=0, saver=None)
     with sv.managed_session(config=config) as sess:
         print('start optimization...')
+        fetches = {'train_epoch_size':train_epoch_size}
+        result = sess.run(fetches)
+        steps_per_epoch = result['train_epoch_size']
+        print("train_epoch_size:{}".format(result['train_epoch_size']))
+
         # load check point if FLAGS.checkpoint is not None
         if FLAGS.checkpoint is not None:
             saver.restore(sess, FLAGS.checkpoint)
@@ -128,9 +133,9 @@ def train_rnn(FLAGS):
             result = sess.run(fetches)
 
             if (step + 1) % FLAGS.print_info_freq == 0:
-                # epoch = math.ceil(result['global_step'] * 1.0 / steps_per_epoch)
-                # rate = FLAGS.batch_size / (time.time() - start_time)
-                # print("epoch:{}\t, rate:{:.2f} sentences/sec".format(epoch, rate))
+                epoch = math.ceil(result['global_step'] * 1.0 / steps_per_epoch)
+                rate = FLAGS.batch_size / (time.time() - start_time)
+                print("epoch:{}\t, rate:{:.2f} sentences/sec".format(epoch, rate))
                 print("global step:{}".format(result['global_step']))
                 print("cost:{:.4f}".format(result['cost']))
                 print("learning rate:{:.6f}".format(result['learning_rate']))
@@ -153,8 +158,9 @@ def train_rnn(FLAGS):
                     test_result = sess.run(fetches, feed_dict={x_test: batch_x_test, y_test: batch_y_test})
                     total_cost += test_result['cost'] * FLAGS.batch_size
                     total_num += FLAGS.batch_size
-                    if i < 10:
-                        for index in range(len(batch_x_test)):
+                    if i < 5:
+                        # for index in range(len(batch_x_test)):
+                        for index in range(4):
                             print(
                                     "x_data:{}".format(
                                             [id_to_word[id] for id in batch_x_test[index] if id in id_to_word]))
