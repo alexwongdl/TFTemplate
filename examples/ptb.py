@@ -10,7 +10,7 @@ import time
 import tensorflow as tf
 import tensorlayer as tl
 
-import ptb_reader
+from examples import ptb_reader
 
 
 def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
@@ -21,18 +21,18 @@ def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
     with tf.variable_scope('ptb_model', reuse=reuse):
         tl.layers.set_name_reuse(reuse)
         net = tl.layers.EmbeddingInputlayer(x_input, vocabulary_size=FLAGS.vocab_size, embedding_size=FLAGS.vocab_dim, E_init= initializer, name='embedding')
-        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_training= is_training, name='dropout_embed')
-        net = tl.layers.RNNLayer(net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell, cell_init_args={'forget_bias':0.0, 'state_is_tuple':True}, n_hidden=FLAGS.vocab_size, \
+        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_train= is_training, name='dropout_embed')
+        net = tl.layers.RNNLayer(net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell, cell_init_args={'forget_bias':0.0, 'state_is_tuple':True}, n_hidden=FLAGS.vocab_dim, \
                                  initializer = initializer, n_steps=FLAGS.num_steps, return_last=False, name='rnn_layer_1')
         lstm_1 = net
-        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_training=is_training, name='dropout_1')
-        net = tl.layers.RNNLayer(net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell, cell_init_args={'forget_bias':0.0, 'state_is_tuple':True}, n_hidden=FLAGS.vocab_size, \
+        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='dropout_1')
+        net = tl.layers.RNNLayer(net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell, cell_init_args={'forget_bias':0.0, 'state_is_tuple':True}, n_hidden=FLAGS.vocab_dim, \
                                 initializer = initializer, n_steps=FLAGS.num_steps, return_last=False, return_seq_2d=True, name='rnn_layer_2')
         lstm_2 = net
-        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_training=is_training, name='dropout_2')
+        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='dropout_2')
         # lstm 的输出结果用DenseLayer投影到字典上
         net = tl.layers.DenseLayer(net, n_units=FLAGS.vocab_size, W_init=initializer, b_init=initializer, act=tf.identity, name='denselayer')
-        output = net
+        output = net.outputs
 
         ## loss function  tf.contrib.legacy_seq2seq.sequence_loss_by_example
         """
@@ -53,8 +53,8 @@ def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
          Returns:
            1D batch-sized float Tensor: The log-perplexity for each sequence.
         """
-        loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(logits=output, targets= tf.reshape(y_input, [-1]), \
-                                                                  weights=tf.ones_like(tf.reshape(y_input, [-1]), dtype=tf.float32), \
+        loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(logits=[output], targets= [tf.reshape(y_input, [-1])], \
+                                                                  weights=[tf.ones_like(tf.reshape(y_input, [-1]), dtype=tf.float32)], \
                                                                   name='sequence_loss_by_example')
         cost = tf.reduce_sum(loss) / FLAGS.batch_size
 
@@ -63,18 +63,18 @@ def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
 def train_rnn(FLAGS):
    print("start train rnn model")
    # 2.load data
-   train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(path=FLAGS.input_dir)
+   train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(data_path=FLAGS.input_dir)
    ## input queue
    x_train, y_train, train_epoch_size = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size, num_steps=FLAGS.num_steps)
 
    # 3.build graph：including loss function，learning rate decay，optimization operation
-   net, cost, _, _, _ = rnn_model(x_train, y_train, False, is_training=True)  # train
+   net, cost, _, _, _ = rnn_model(x_train, y_train, False, is_training=True, FLAGS=FLAGS)  # train
 
    x_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='x_test')
    y_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='y_test')
    x_valid_data, y_valid_data, valid_epoch_size = ptb_reader.ptb_data_batch(valid_data, FLAGS.batch_size,
                                                                             FLAGS.num_steps)
-   net_valid, cost_valid, _, _, _ = rnn_model(x_test, y_test, True, is_training=False)  # validate/test
+   net_valid, cost_valid, _, _, _ = rnn_model(x_test, y_test, True, is_training=False, FLAGS=FLAGS)  # validate/test
    validate_batch_num = valid_epoch_size
 
    steps_per_epoch = train_epoch_size
@@ -89,8 +89,8 @@ def train_rnn(FLAGS):
    # train_op = tf.train.AdamOptimizer(learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08, use_locking=False).minimize(
    #         cost, var_list=train_params)
    train_vars = tf.trainable_variables()
-   grads, _  = tf.clip_by_norm(tf.gradients(cost, train_vars, FLAGS.max_grad_norm, name='clip_grads'))
-   train_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).apply_gradients(zip(grads, train_data))
+   grads, _  = tf.clip_by_global_norm(tf.gradients(cost, train_vars), clip_norm=FLAGS.max_grad_norm, name='clip_grads')
+   train_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).apply_gradients(zip(grads, train_vars))
 
    # 4.summary
    tf.summary.scalar('cost', cost)
@@ -120,9 +120,9 @@ def train_rnn(FLAGS):
            result = sess.run(fetches)
 
            if (step + 1) % FLAGS.print_info_freq == 0:
-               epoch = math.ceil(result['global_step'] * 1.0 / steps_per_epoch)
-               rate = FLAGS.batch_size / (time.time() - start_time)
-               print("epoch:{}\t, rate:{:.2f} sentences/sec".format(epoch, rate))
+               # epoch = math.ceil(result['global_step'] * 1.0 / steps_per_epoch)
+               # rate = FLAGS.batch_size / (time.time() - start_time)
+               # print("epoch:{}\t, rate:{:.2f} sentences/sec".format(epoch, rate))
                print("global step:{}".format(result['global_step']))
                print("cost:{:.4f}".format(result['cost']))
                print("learning rate:{:.6f}".format(result['learning_rate']))
@@ -147,8 +147,8 @@ def train_rnn(FLAGS):
                    total_num += FLAGS.batch_size
                    if i < 10:
                        for index in range(len(batch_x_test)):
-                           print("x_data:{}".format(batch_x_test[index]))
-                           print("y_data:{}".format(batch_y_test[index]))
+                           print("x_data:{}".format([ id_to_word[id] for id in batch_x_test[index] if id in id_to_word]))
+                           print("y_data:{}".format([id_to_word[id] for id in batch_y_test[index] if id in id_to_word]))
                valid_cost = total_cost / total_num
                print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
 
