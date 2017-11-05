@@ -26,10 +26,10 @@ if __name__ == '__main__':
     """
     parser.add_argument('--is_training', default=False, help='is training')
 
-    # parser.add_argument('--max_iter', default=20000, help='max training iterate times', type=int)
+    parser.add_argument('--max_iter', default=20000, help='max training iterate times', type=int)
     parser.add_argument('--batch_size', default=16, help='batch size', type=int)
     # learning raate  exponential_decay  decayed_learning_rate = learning_rate * decay_rate ^ (global_step / decay_steps)
-    parser.add_argument('--learning_rate', default=0.01, help='learning rate', type=float)
+    parser.add_argument('--learning_rate', default=1.0, help='learning rate', type=float)
     parser.add_argument('--decay_step', default=10000, help='decay step', type=int)
     parser.add_argument('--decay_rate', default=0.9, help='decay rate', type=float)
 

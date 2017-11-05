@@ -127,8 +127,9 @@ def train_mnist(FLAGS):
 
             if (step + 1) % FLAGS.valid_freq == 0 or step == 0:
                 print("validate model...")
-                fetches['accuracy'] = acc
-                fetches['y_pred'] = y_pred
+                # fetches['accuracy'] = acc
+                # fetches['y_pred'] = y_pred
+                fetches = {'accuracy':acc, 'y_pred':y_pred}
                 total_acc = 0
                 total_num = 0
                 for i in range(validate_batch_num - 1):
