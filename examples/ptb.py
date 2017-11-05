@@ -39,6 +39,7 @@ def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
         net = tl.layers.DenseLayer(net, n_units=FLAGS.vocab_size, W_init=initializer, b_init=initializer,
                                    act=tf.identity, name='denselayer')
         output = net.outputs
+        predict = tf.reshape(tf.arg_max(output, 1), shape=[FLAGS.batch_size, FLAGS.num_steps], name='predict')
 
         ## loss function  tf.contrib.legacy_seq2seq.sequence_loss_by_example
         """
@@ -65,7 +66,7 @@ def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
                                                                   name='sequence_loss_by_example')
         cost = tf.reduce_sum(loss) / FLAGS.batch_size
 
-        return output, cost, lstm_1, lstm_2, loss
+        return net, cost, lstm_1, lstm_2, loss, predict
 
 
 def train_rnn(FLAGS):
@@ -77,13 +78,15 @@ def train_rnn(FLAGS):
                                                                    num_steps=FLAGS.num_steps)
 
     # 3.build graph：including loss function，learning rate decay，optimization operation
-    net, cost, _, _, _ = rnn_model(x_train, y_train, False, is_training=True, FLAGS=FLAGS)  # train
+    net, cost, lstm_train_1, lstm_train_2, _, _ = rnn_model(x_train, y_train, False, is_training=True,
+                                                            FLAGS=FLAGS)  # train
 
     x_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='x_test')
     y_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='y_test')
     x_valid_data, y_valid_data, valid_epoch_size = ptb_reader.ptb_data_batch(valid_data, FLAGS.batch_size,
                                                                              FLAGS.num_steps)
-    net_valid, cost_valid, _, _, _ = rnn_model(x_test, y_test, True, is_training=False, FLAGS=FLAGS)  # validate/test
+    net_valid, cost_valid, lstm_val_1, lstm_val_2, _, predict = rnn_model(x_test, y_test, True, is_training=False,
+                                                                          FLAGS=FLAGS)  # validate/test
     validate_batch_num = valid_epoch_size
 
     global_step = tf.contrib.framework.get_or_create_global_step()
@@ -111,7 +114,9 @@ def train_rnn(FLAGS):
     sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=0, saver=None)
     with sv.managed_session(config=config) as sess:
         print('start optimization...')
-        fetches = {'train_epoch_size':train_epoch_size}
+        state1 = tl.layers.initialize_rnn_state(lstm_train_1.initial_state)
+        state2 = tl.layers.initialize_rnn_state(lstm_train_2.initial_state)
+        fetches = {'train_epoch_size': train_epoch_size}
         result = sess.run(fetches)
         steps_per_epoch = result['train_epoch_size']
         print("train_epoch_size:{}".format(result['train_epoch_size']))
@@ -122,7 +127,17 @@ def train_rnn(FLAGS):
 
         for step in range(FLAGS.max_iter):
             start_time = time.time()
-            fetches = {'train_op': train_op, 'global_step': global_step, 'inc_global_step': incr_global_step}
+            fetches = {'train_op': train_op, 'global_step': global_step, 'inc_global_step': incr_global_step,
+                       'lstm1_final_state_c': lstm_train_1.final_state.c,
+                       'lstm1_final_state_h': lstm_train_1.final_state.h,
+                       'lstm2_final_state_c': lstm_train_2.final_state.c,
+                       'lstm2_final_state_h': lstm_train_2.final_state.h}
+            feed_dict = {
+                lstm_train_1.initial_state.c: state1[0],
+                lstm_train_1.initial_state.h: state1[1],
+                lstm_train_2.initial_state.c: state2[0],
+                lstm_train_2.initial_state.h: state2[1]
+            }
             if (step + 1) % FLAGS.print_info_freq == 0:
                 fetches['cost'] = cost
                 fetches['learning_rate'] = learning_rate
@@ -130,7 +145,9 @@ def train_rnn(FLAGS):
             if (step + 1) % FLAGS.summary_freq == 0:
                 fetches['summary_op'] = sv.summary_op
 
-            result = sess.run(fetches)
+            result = sess.run(fetches, feed_dict=feed_dict)
+            state1 = (fetches['lstm1_final_state_c'], fetches['lstm1_final_state_h'])
+            state2 = (fetches['lstm2_final_state_c'], fetches['lstm2_final_state_h'])
 
             if (step + 1) % FLAGS.print_info_freq == 0:
                 epoch = math.ceil(result['global_step'] * 1.0 / steps_per_epoch)
@@ -149,7 +166,7 @@ def train_rnn(FLAGS):
 
             if (step + 1) % FLAGS.valid_freq == 0 or step == 0:
                 print("validate model...")
-                fetches = {'cost': cost}
+                fetches = {'cost': cost, 'predict': predict}
                 total_cost = 0
                 total_num = 0
                 for i in range(validate_batch_num):
@@ -158,15 +175,15 @@ def train_rnn(FLAGS):
                     test_result = sess.run(fetches, feed_dict={x_test: batch_x_test, y_test: batch_y_test})
                     total_cost += test_result['cost'] * FLAGS.batch_size
                     total_num += FLAGS.batch_size
+                    predict_val = test_result['predict']
                     if i < 5:
                         # for index in range(len(batch_x_test)):
                         for index in range(4):
+                            print("predict_data:{}".format(
+                                    [id_to_word[id] for id in predict_val[index] if id in id_to_word]))
+                            # print("predict_data:{}".format(predict_val))
                             print(
-                                    "x_data:{}".format(
-                                            [id_to_word[id] for id in batch_x_test[index] if id in id_to_word]))
-                            print(
-                                    "y_data:{}".format(
-                                            [id_to_word[id] for id in batch_y_test[index] if id in id_to_word]))
+                                "y_data:{}".format([id_to_word[id] for id in batch_y_test[index] if id in id_to_word]))
                 valid_cost = total_cost / total_num
                 print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
 
