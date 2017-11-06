@@ -97,7 +97,7 @@ def ptb_data_queue(raw_data, batch_size, num_steps):
     data = tf.reshape(raw_data[0: batch_size * batch_len], [batch_size, batch_len])
     epoch_size = (batch_len - 1) // num_steps
 
-    index = tf.train.range_input_producer(epoch_size,
+    index = tf.train.range_input_producer(epoch_size, shuffle=False,
                                           num_epochs=None).dequeue()  ##如果没有dequeue，TypeError: unsupported operand type(s) for *: 'FIFOQueue' and 'int'
     x = tf.strided_slice(data, [0, index * num_steps], [batch_len, (index + 1) * num_steps])
     y = tf.strided_slice(data, [0, index * num_steps + 1], [batch_len, (index + 1) * num_steps + 1])

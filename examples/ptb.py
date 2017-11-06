@@ -73,7 +73,7 @@ def train_rnn(FLAGS):
     print("start train rnn model")
     # 2.load data
     train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(data_path=FLAGS.input_dir)
-    ## input queue
+    ## TODO:input queue改为顺序输入，每一个epoch初始化LSTM状态
     x_train, y_train, train_epoch_size = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size,
                                                                    num_steps=FLAGS.num_steps)
 
@@ -114,8 +114,16 @@ def train_rnn(FLAGS):
     sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=0, saver=None)
     with sv.managed_session(config=config) as sess:
         print('start optimization...')
-        state1 = tl.layers.initialize_rnn_state(lstm_train_1.initial_state)
-        state2 = tl.layers.initialize_rnn_state(lstm_train_2.initial_state)
+
+        # state1 = sess.run(tl.layers.initialize_rnn_state(lstm_train_1.initial_state))
+        # state2 = sess.run(tl.layers.initialize_rnn_state(lstm_train_2.initial_state))
+        # lstm初始化
+        state1_init_c, state1_init_h, state_init2_c, state_init2_h = sess.run(
+                [lstm_train_1.initial_state.c, lstm_train_1.initial_state.h,
+                 lstm_train_2.initial_state.c, lstm_train_2.initial_state.h])
+        state1 = (state1_init_c, state1_init_h)
+        state2 = (state_init2_c, state_init2_h)
+
         fetches = {'train_epoch_size': train_epoch_size}
         result = sess.run(fetches)
         steps_per_epoch = result['train_epoch_size']
@@ -138,6 +146,7 @@ def train_rnn(FLAGS):
                 lstm_train_2.initial_state.c: state2[0],
                 lstm_train_2.initial_state.h: state2[1]
             }
+
             if (step + 1) % FLAGS.print_info_freq == 0:
                 fetches['cost'] = cost
                 fetches['learning_rate'] = learning_rate
@@ -146,8 +155,8 @@ def train_rnn(FLAGS):
                 fetches['summary_op'] = sv.summary_op
 
             result = sess.run(fetches, feed_dict=feed_dict)
-            state1 = (fetches['lstm1_final_state_c'], fetches['lstm1_final_state_h'])
-            state2 = (fetches['lstm2_final_state_c'], fetches['lstm2_final_state_h'])
+            state1 = (result['lstm1_final_state_c'], result['lstm1_final_state_h'])
+            state2 = (result['lstm2_final_state_c'], result['lstm2_final_state_h'])
 
             if (step + 1) % FLAGS.print_info_freq == 0:
                 epoch = math.ceil(result['global_step'] * 1.0 / steps_per_epoch)
@@ -183,7 +192,8 @@ def train_rnn(FLAGS):
                                     [id_to_word[id] for id in predict_val[index] if id in id_to_word]))
                             # print("predict_data:{}".format(predict_val))
                             print(
-                                "y_data:{}".format([id_to_word[id] for id in batch_y_test[index] if id in id_to_word]))
+                                    "y_data:{}".format(
+                                            [id_to_word[id] for id in batch_y_test[index] if id in id_to_word]))
                 valid_cost = total_cost / total_num
                 print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
 
