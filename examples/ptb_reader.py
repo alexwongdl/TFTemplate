@@ -145,11 +145,12 @@ def test_ptb_test_data():
             print("x_words:" + " ".join(x_words))
             y_words = [id_to_word[id] for id in y_batch[j] if id in id_to_word]
             print("y_words:" + " ".join(y_words))
+        print()
 
 if __name__ == "__main__":
     # str_list =_read_words("E://data/ptb/data/ptb.test.txt")
     # for str in str_list:
     #     print(str)
 
-    test_ptb_data_queue()
-    # test_ptb_test_data()
+    # test_ptb_data_queue()
+    test_ptb_test_data()

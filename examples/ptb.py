@@ -3,7 +3,6 @@ Created by Alex Wang
 On 2017-10-29
 Recurrent Neural Networks on Penn Tree Bank dataset:https://www.tensorflow.org/tutorials/recurrent
 """
-import math
 import os
 import time
 
@@ -74,18 +73,22 @@ def train_rnn(FLAGS):
     # 2.load data
     train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(data_path=FLAGS.input_dir)
     ## TODO:input queue改为顺序输入，每一个epoch初始化LSTM状态
-    x_train, y_train, train_epoch_size = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size,
-                                                                   num_steps=FLAGS.num_steps)
+    # x_train, y_train, train_epoch_size = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size,
+    #                                                                num_steps=FLAGS.num_steps)
+    x_train_data, y_train_data, train_epoch_size = ptb_reader.ptb_data_batch(train_data, batch_size=FLAGS.batch_size,
+                                                                             num_steps=FLAGS.num_steps)
 
     # 3.build graph：including loss function，learning rate decay，optimization operation
+    x_train = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='x_train')
+    y_train = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='y_train')
     net, cost, lstm_train_1, lstm_train_2, _, _ = rnn_model(x_train, y_train, False, is_training=True,
                                                             FLAGS=FLAGS)  # train
 
-    x_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='x_test')
-    y_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='y_test')
+    # x_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='x_test')
+    # y_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='y_test')
     x_valid_data, y_valid_data, valid_epoch_size = ptb_reader.ptb_data_batch(valid_data, FLAGS.batch_size,
                                                                              FLAGS.num_steps)
-    net_valid, cost_valid, lstm_val_1, lstm_val_2, _, predict = rnn_model(x_test, y_test, True, is_training=False,
+    net_valid, cost_valid, lstm_val_1, lstm_val_2, _, predict = rnn_model(x_train, y_train, True, is_training=False,
                                                                           FLAGS=FLAGS)  # validate/test
     validate_batch_num = valid_epoch_size
 
@@ -115,87 +118,82 @@ def train_rnn(FLAGS):
     with sv.managed_session(config=config) as sess:
         print('start optimization...')
 
-        # state1 = sess.run(tl.layers.initialize_rnn_state(lstm_train_1.initial_state))
-        # state2 = sess.run(tl.layers.initialize_rnn_state(lstm_train_2.initial_state))
-        # lstm初始化
-        state1_init_c, state1_init_h, state_init2_c, state_init2_h = sess.run(
-                [lstm_train_1.initial_state.c, lstm_train_1.initial_state.h,
-                 lstm_train_2.initial_state.c, lstm_train_2.initial_state.h])
-        state1 = (state1_init_c, state1_init_h)
-        state2 = (state_init2_c, state_init2_h)
-
-        fetches = {'train_epoch_size': train_epoch_size}
-        result = sess.run(fetches)
-        steps_per_epoch = result['train_epoch_size']
-        print("train_epoch_size:{}".format(result['train_epoch_size']))
-
         # load check point if FLAGS.checkpoint is not None
         if FLAGS.checkpoint is not None:
             saver.restore(sess, FLAGS.checkpoint)
 
-        for step in range(FLAGS.max_iter):
-            start_time = time.time()
-            fetches = {'train_op': train_op, 'global_step': global_step, 'inc_global_step': incr_global_step,
-                       'lstm1_final_state_c': lstm_train_1.final_state.c,
-                       'lstm1_final_state_h': lstm_train_1.final_state.h,
-                       'lstm2_final_state_c': lstm_train_2.final_state.c,
-                       'lstm2_final_state_h': lstm_train_2.final_state.h}
-            feed_dict = {
-                lstm_train_1.initial_state.c: state1[0],
-                lstm_train_1.initial_state.h: state1[1],
-                lstm_train_2.initial_state.c: state2[0],
-                lstm_train_2.initial_state.h: state2[1]
-            }
+        for round in range(FLAGS.max_max_epoch):
+            # lstm初始化
+            state1_init_c, state1_init_h, state_init2_c, state_init2_h = sess.run(
+                    [lstm_train_1.initial_state.c, lstm_train_1.initial_state.h,
+                     lstm_train_2.initial_state.c, lstm_train_2.initial_state.h],
+                    feed_dict={x_train: x_train_data[0], y_train:y_train_data[0]})
+            state1 = (state1_init_c, state1_init_h)
+            state2 = (state_init2_c, state_init2_h)
 
-            if (step + 1) % FLAGS.print_info_freq == 0:
-                fetches['cost'] = cost
-                fetches['learning_rate'] = learning_rate
+            for step in range(train_epoch_size):
+                start_time = time.time()
+                fetches = {'train_op': train_op, 'global_step': global_step, 'inc_global_step': incr_global_step,
+                           'lstm1_final_state_c': lstm_train_1.final_state.c,
+                           'lstm1_final_state_h': lstm_train_1.final_state.h,
+                           'lstm2_final_state_c': lstm_train_2.final_state.c,
+                           'lstm2_final_state_h': lstm_train_2.final_state.h}
+                feed_dict = {
+                    lstm_train_1.initial_state.c: state1[0],
+                    lstm_train_1.initial_state.h: state1[1],
+                    lstm_train_2.initial_state.c: state2[0],
+                    lstm_train_2.initial_state.h: state2[1],
+                    x_train: x_train_data[step], y_train: y_train_data[step]
+                }
 
-            if (step + 1) % FLAGS.summary_freq == 0:
-                fetches['summary_op'] = sv.summary_op
+                if (step + 1) % FLAGS.print_info_freq == 0:
+                    fetches['cost'] = cost
+                    fetches['learning_rate'] = learning_rate
 
-            result = sess.run(fetches, feed_dict=feed_dict)
-            state1 = (result['lstm1_final_state_c'], result['lstm1_final_state_h'])
-            state2 = (result['lstm2_final_state_c'], result['lstm2_final_state_h'])
+                if (step + 1) % FLAGS.summary_freq == 0:
+                    fetches['summary_op'] = sv.summary_op
 
-            if (step + 1) % FLAGS.print_info_freq == 0:
-                epoch = math.ceil(result['global_step'] * 1.0 / steps_per_epoch)
-                rate = FLAGS.batch_size / (time.time() - start_time)
-                print("epoch:{}\t, rate:{:.2f} sentences/sec".format(epoch, rate))
-                print("global step:{}".format(result['global_step']))
-                print("cost:{:.4f}".format(result['cost']))
-                print("learning rate:{:.6f}".format(result['learning_rate']))
-                print()
+                result = sess.run(fetches, feed_dict=feed_dict)
+                state1 = (result['lstm1_final_state_c'], result['lstm1_final_state_h'])
+                state2 = (result['lstm2_final_state_c'], result['lstm2_final_state_h'])
 
-            if (step + 1) % FLAGS.save_model_freq == 0:
-                print("save model")
-                if not os.path.exists(FLAGS.save_model_dir):
-                    os.mkdir(FLAGS.save_model_dir)
-                saver.save(sess, os.path.join(FLAGS.save_model_dir, 'model'), global_step=global_step)
+                if (step + 1) % FLAGS.print_info_freq == 0:
+                    rate = FLAGS.batch_size / (time.time() - start_time)
+                    print("epoch:{}\t, rate:{:.2f} sentences/sec".format(round, rate))
+                    print("global step:{}".format(result['global_step']))
+                    print("cost:{:.4f}".format(result['cost']))
+                    print("learning rate:{:.6f}".format(result['learning_rate']))
+                    print(state1[0])
+                    print()
 
-            if (step + 1) % FLAGS.valid_freq == 0 or step == 0:
-                print("validate model...")
-                fetches = {'cost': cost, 'predict': predict}
-                total_cost = 0
-                total_num = 0
-                for i in range(validate_batch_num):
-                    batch_x_test = x_valid_data[i]
-                    batch_y_test = y_valid_data[i]
-                    test_result = sess.run(fetches, feed_dict={x_test: batch_x_test, y_test: batch_y_test})
-                    total_cost += test_result['cost'] * FLAGS.batch_size
-                    total_num += FLAGS.batch_size
-                    predict_val = test_result['predict']
-                    if i < 5:
-                        # for index in range(len(batch_x_test)):
-                        for index in range(4):
-                            print("predict_data:{}".format(
-                                    [id_to_word[id] for id in predict_val[index] if id in id_to_word]))
-                            # print("predict_data:{}".format(predict_val))
-                            print(
-                                    "y_data:{}".format(
-                                            [id_to_word[id] for id in batch_y_test[index] if id in id_to_word]))
-                valid_cost = total_cost / total_num
-                print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
+                if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
+                    print("save model")
+                    if not os.path.exists(FLAGS.save_model_dir):
+                        os.mkdir(FLAGS.save_model_dir)
+                    saver.save(sess, os.path.join(FLAGS.save_model_dir, 'model'), global_step=global_step)
+
+                if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
+                    print("validate model...")
+                    fetches = {'cost': cost, 'predict': predict}
+                    total_cost = 0
+                    total_num = 0
+                    for i in range(validate_batch_num):
+                        batch_x_test = x_valid_data[i]
+                        batch_y_test = y_valid_data[i]
+                        test_result = sess.run(fetches, feed_dict={x_train: batch_x_test, y_train: batch_y_test})
+                        total_cost += test_result['cost'] * FLAGS.batch_size
+                        total_num += FLAGS.batch_size
+                        predict_val = test_result['predict']
+                        if i < 5:
+                            # for index in range(len(batch_x_test)):
+                            for index in range(4):
+                                print("predict_data:{}".format(
+                                        [id_to_word[id] for id in predict_val[index] if id in id_to_word]))
+                                # print("predict_data:{}".format(predict_val))
+                                print("y_data:{}".format(
+                                        [id_to_word[id] for id in batch_y_test[index] if id in id_to_word]))
+                    valid_cost = total_cost / total_num
+                    print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
 
         print('optimization finished!')
 
