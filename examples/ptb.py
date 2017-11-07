@@ -72,7 +72,6 @@ def train_rnn(FLAGS):
     print("start train rnn model")
     # 2.load data
     train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(data_path=FLAGS.input_dir)
-    ## TODO:input queue改为顺序输入，每一个epoch初始化LSTM状态
     # x_train, y_train, train_epoch_size = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size,
     #                                                                num_steps=FLAGS.num_steps)
     x_train_data, y_train_data, train_epoch_size = ptb_reader.ptb_data_batch(train_data, batch_size=FLAGS.batch_size,
@@ -105,6 +104,7 @@ def train_rnn(FLAGS):
     train_vars = tf.trainable_variables()
     grads, _ = tf.clip_by_global_norm(tf.gradients(cost, train_vars), clip_norm=FLAGS.max_grad_norm, name='clip_grads')
     train_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).apply_gradients(zip(grads, train_vars))
+    init_op = tf.global_variables_initializer()
 
     # 4.summary
     tf.summary.scalar('cost', cost)
@@ -117,6 +117,11 @@ def train_rnn(FLAGS):
     sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=0, saver=None)
     with sv.managed_session(config=config) as sess:
         print('start optimization...')
+        # tl.layers.initialize_global_variables(sess)
+        init_ = sess.run(init_op)
+        net.print_params()
+        net.print_layers()
+        tl.layers.print_all_variables()
 
         # load check point if FLAGS.checkpoint is not None
         if FLAGS.checkpoint is not None:

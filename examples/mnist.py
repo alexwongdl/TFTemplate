@@ -94,6 +94,7 @@ def train_mnist(FLAGS):
     sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=0, saver=None)
     with sv.managed_session(config=config) as sess:
         print('start optimization...')
+
         # load check point if FLAGS.checkpoint is not None
         if FLAGS.checkpoint is not None:
             saver.restore(sess, FLAGS.checkpoint)
