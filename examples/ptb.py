@@ -15,7 +15,7 @@ from examples import ptb_reader
 def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
     print('construct rnn model')
     # rnn_mode - the low level implementation of lstm cell: one of CUDNN, BASIC, or BLOCK, representing cudnn_lstm, basic_lstm, and lstm_block_cell classes.
-    # TODO: construct graph
+    #construct graph
     initializer = tf.random_normal_initializer(-FLAGS.init_scale, FLAGS.init_scale)
     with tf.variable_scope('ptb_model', reuse=reuse):
         tl.layers.set_name_reuse(reuse)
@@ -104,7 +104,7 @@ def train_rnn(FLAGS):
     train_vars = tf.trainable_variables()
     grads, _ = tf.clip_by_global_norm(tf.gradients(cost, train_vars), clip_norm=FLAGS.max_grad_norm, name='clip_grads')
     train_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).apply_gradients(zip(grads, train_vars))
-    # init_op = tf.global_variables_initializer()
+    init_op = tf.global_variables_initializer()
 
     # 4.summary
     tf.summary.scalar('cost', cost)
@@ -114,14 +114,15 @@ def train_rnn(FLAGS):
     saver = tf.train.Saver()
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=0, saver=None, init_op=tf.global_variables_initializer())
+    sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=0, saver=None)
     with sv.managed_session(config=config) as sess:
         print('start optimization...')
-        # tl.layers.initialize_global_variables(sess)
-        # init_ = sess.run(init_op)
-        net.print_params()
-        net.print_layers()
-        tl.layers.print_all_variables()
+        with sess.as_default():
+            # tl.layers.initialize_global_variables(sess)
+            init_ = sess.run(init_op)
+            net.print_params()
+            net.print_layers()
+            tl.layers.print_all_variables()
 
         # load check point if FLAGS.checkpoint is not None
         if FLAGS.checkpoint is not None:
@@ -129,10 +130,13 @@ def train_rnn(FLAGS):
 
         for round in range(FLAGS.max_max_epoch):
             # lstm初始化
+            # with sess.as_default():
+            #     state1 = tl.layers.initialize_rnn_state(lstm_train_1.initial_state)
+            #     state2 = tl.layers.initialize_rnn_state(lstm_train_2.initial_state)
             state1_init_c, state1_init_h, state_init2_c, state_init2_h = sess.run(
                     [lstm_train_1.initial_state.c, lstm_train_1.initial_state.h,
                      lstm_train_2.initial_state.c, lstm_train_2.initial_state.h],
-                    feed_dict={x_train: x_train_data[0], y_train:y_train_data[0]})
+                    feed_dict={x_train: x_train_data[0], y_train: y_train_data[0]})
             state1 = (state1_init_c, state1_init_h)
             state2 = (state_init2_c, state_init2_h)
 
