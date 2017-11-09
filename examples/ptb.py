@@ -6,6 +6,10 @@ Recurrent Neural Networks on Penn Tree Bank dataset:https://www.tensorflow.org/t
 import os
 import time
 
+os.environ["CUDA_VISIBLE_DEVICES"]='1'
+from tensorflow.python.client import device_lib
+print(device_lib.list_local_devices())
+
 import tensorflow as tf
 import tensorlayer as tl
 
@@ -185,13 +189,33 @@ def train_rnn(FLAGS):
 
                 if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
                     print("validate model...")
-                    fetches = {'cost': cost, 'predict': predict}
+                    val_state1_init_c, val_state1_init_h, val_state_init2_c, val_state_init2_h = sess.run(
+                            [lstm_val_1.initial_state.c, lstm_val_1.initial_state.h,
+                             lstm_val_2.initial_state.c, lstm_val_2.initial_state.h],
+                            feed_dict={x_train: x_valid_data[0], y_train: y_valid_data[0]})
+                    val_state1 = (val_state1_init_c, val_state1_init_h)
+                    val_state2 = (val_state_init2_c, val_state_init2_h)
+
+                    fetches = {'cost': cost_valid, 'predict': predict,
+                               'val_lstm1_final_state_c': lstm_val_1.final_state.c,
+                               'val_lstm1_final_state_h': lstm_val_1.final_state.h,
+                               'val_lstm2_final_state_c': lstm_val_2.final_state.c,
+                               'val_lstm2_final_state_h': lstm_val_2.final_state.h}
+
                     total_cost = 0
                     total_num = 0
                     for i in range(validate_batch_num):
                         batch_x_test = x_valid_data[i]
                         batch_y_test = y_valid_data[i]
-                        test_result = sess.run(fetches, feed_dict={x_train: batch_x_test, y_train: batch_y_test})
+                        feed_dict = {x_train: batch_x_test, y_train: batch_y_test,
+                                     lstm_val_1.initial_state.c : val_state1[0],
+                                     lstm_val_1.initial_state.h : val_state1[1],
+                                     lstm_val_2.initial_state.c : val_state2[0],
+                                     lstm_val_2.initial_state.h : val_state2[1]}
+                        test_result = sess.run(fetches, feed_dict=feed_dict)
+                        val_state1 = (test_result['val_lstm1_final_state_c'], test_result['val_lstm1_final_state_h'])
+                        val_state2 = (test_result['val_lstm2_final_state_c'], test_result['val_lstm2_final_state_h'])
+
                         total_cost += test_result['cost'] * FLAGS.batch_size
                         total_num += FLAGS.batch_size
                         predict_val = test_result['predict']
