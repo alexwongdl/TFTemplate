@@ -189,6 +189,7 @@ def train_rnn(FLAGS):
 
                 if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
                     print("validate model...")
+                    # 初始化lstm
                     val_state1_init_c, val_state1_init_h, val_state_init2_c, val_state_init2_h = sess.run(
                             [lstm_val_1.initial_state.c, lstm_val_1.initial_state.h,
                              lstm_val_2.initial_state.c, lstm_val_2.initial_state.h],
