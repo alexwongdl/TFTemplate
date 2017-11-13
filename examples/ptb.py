@@ -239,7 +239,7 @@ def test(FLAGS):
     train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(data_path=FLAGS.input_dir)
     x_test = tf.placeholder(dtype=tf.int32, shape=[1, 1], name='x_test')
     y_test = tf.placeholder(dtype=tf.int32, shape=[1, 1], name='y_test')
-    x_test_data, y_test_data, test_epoch_size = ptb_reader.ptb_data_batch(valid_data, FLAGS.batch_size, FLAGS.num_steps)
+    x_test_data, y_test_data, test_epoch_size = ptb_reader.ptb_data_batch(test_data, 1, 1)
     #TODO: load pretrained model and run test
 
 
