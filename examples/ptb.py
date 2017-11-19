@@ -6,9 +6,9 @@ Recurrent Neural Networks on Penn Tree Bank dataset:https://www.tensorflow.org/t
 import os
 import time
 
-os.environ["CUDA_VISIBLE_DEVICES"]='1'
-from tensorflow.python.client import device_lib
-print(device_lib.list_local_devices())
+# os.environ["CUDA_VISIBLE_DEVICES"]='1'
+# from tensorflow.python.client import device_lib
+# print(device_lib.list_local_devices())
 
 import tensorflow as tf
 import tensorlayer as tl
