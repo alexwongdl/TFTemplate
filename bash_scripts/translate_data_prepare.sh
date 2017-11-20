@@ -2,7 +2,7 @@
 
 root_data_path=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate
 python MainEntryNMT_vanilla.py \
-    --task=prepare_data \
+    --task=prepare_data \    #prepare_data  corpus_to_id
     --corpora_one_path=${root_data_path}/giga-fren.release2.fixed.fr \
     --corpora_two_path=${root_data_path}/giga-fren.release2.fixed.en \
     --corpora_combine_path=${root_data_path}/giga-fr-en \

@@ -14,7 +14,7 @@ import os
 import argparse
 
 from myutil.myprint import *
-from examples.translation_data_prepare import prepare_data
+from examples.translation_data_prepare import prepare_data, corpora_to_id
 
 
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
@@ -81,4 +81,7 @@ if __name__ == '__main__':
         print('start prepare data.')
         # def prepare_data(corpora_one, corpora_two, corpora_combine, dic_one_path, dic_two_path, corpora_combine_ID):
         prepare_data(FLAGS.corpora_one_path, FLAGS.corpora_two_path, FLAGS.corpora_combine_path,
+                     FLAGS.dict_one_path, FLAGS.dic_two_path, FLAGS.corpora_combine_ID_path)
+    elif FLAGS.task == 'corpus_to_id':
+        corpora_to_id(FLAGS.corpora_one_path, FLAGS.corpora_two_path, FLAGS.corpora_combine_path,
                      FLAGS.dict_one_path, FLAGS.dic_two_path, FLAGS.corpora_combine_ID_path)
