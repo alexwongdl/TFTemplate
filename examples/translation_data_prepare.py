@@ -31,6 +31,7 @@ translation data prepare:
 import os
 import json
 import nltk
+from tqdm import tqdm
 from collections import OrderedDict
 
 
@@ -114,8 +115,8 @@ def corpora_to_id(corpora_one, corpora_two, corpora_combine, dic_one_path, dic_t
     :param corpora_combine_ID:
     :return:
     """
-    fr_word_to_id, fr_id_to_word = load_dict(corpora_one)
-    en_word_to_id, en_id_to_word = load_dict(corpora_two)
+    fr_word_to_id, fr_id_to_word = load_dict(dic_one_path)
+    en_word_to_id, en_id_to_word = load_dict(dic_two_path)
     count = 0
     with open(corpora_combine, 'r') as reader, open(corpora_combine_ID, 'w') as writer:
         line = reader.readline()
@@ -124,13 +125,17 @@ def corpora_to_id(corpora_one, corpora_two, corpora_combine, dic_one_path, dic_t
             strings_dict = json.loads(line)
             tokens_fr = strings_dict['source']
             tokens_en = strings_dict['target']
-            tokens_fr_id = [fr_word_to_id[word] if word in fr_word_to_id.keys() else 3 for word in tokens_fr]
-            tokens_en_id = [en_word_to_id[word] if word in en_word_to_id.keys() else 3 for word in tokens_en]
-            writer.write(json.dumps({'source':tokens_fr_id, 'target':tokens_en_id} + '\n'))
+            tokens_fr_id = [fr_word_to_id[word.strip()] if word.strip() in fr_word_to_id.keys() else 3 for word in tokens_fr]
+            tokens_en_id = [en_word_to_id[word.strip()] if word.strip() in en_word_to_id.keys() else 3 for word in tokens_en]
+            writer.write(json.dumps({'source':tokens_fr_id, 'target':tokens_en_id}) + '\n')
             if count < 10:
                 words_fr = [fr_id_to_word[id] for id in tokens_fr_id]
                 words_en = [en_id_to_word[id] for id in tokens_en_id]
-                print('source:{}, target:{}'.format(' '.join(words_fr), ' '.join(words_en)))
+                print('example:' + str(count))
+                print('corpora SOURCE:{}, TARGET:{}'.format(' '.join(tokens_fr), ' '.join(tokens_en)))
+                print('corpora id SOURCE:{}, TARGET:{}'.format(' '.join('{}'.format(id) for id in tokens_fr_id), ' '.join('{}'.format(id) for id in tokens_en_id)))
+                print('id_to_word SOURCE:{}, TARGET:{}'.format(' '.join(words_fr), ' '.join(words_en)))
+                print('')
 
             line = reader.readline()
 
@@ -148,9 +153,12 @@ def load_dict(dict_path):
     with open(dict_path, 'r') as reader:
         word = reader.readline()
         while word:
+            word = word.strip()
             word_to_id[word] = index
             id_to_word[index] = word
             index += 1
+            word = reader.readline()
+
     print('size of word_to_id:{}'.format(len(word_to_id)))
     print('size of id_to_word:{}'.format(len(id_to_word)))
     for i in range(10):
