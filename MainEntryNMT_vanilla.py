@@ -15,7 +15,7 @@ import argparse
 
 from myutil.myprint import *
 from examples.translation_data_prepare import prepare_data, corpora_to_id
-
+from examples import translation_vanilla
 
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
@@ -46,17 +46,15 @@ if __name__ == '__main__':
     parser.add_argument('--valid_freq', default=10000, help='validate frequence', type=int)
 
     """
-    params for train ptb
+    params for train nmt vanilla
     """
-    # parser.add_argument('--init_scale', default=0.04, help='the initial scale of the weights', type = float)
-    # parser.add_argument('--max_grad_norm', default=10, help='the maximum permissible norm of the gradient', type=float)
-    # parser.add_argument('--num_steps', default=35, help='the number of unrolled steps of LSTM', type=int)
-    # # parser.add_argument('--max_epoch', default=14, help='the number of epochs trained with the initial learning rate', type=int) -- decay step
-    # parser.add_argument('--max_max_epoch', default=55, help='the total number of epochs for training', type=int)
-    # parser.add_argument('--keep_prob', default=0.35, help='the probability of keeping weights in the dropout layer', type=float)
-    # # vocabulary
-    # parser.add_argument('--vocab_size', default=10000, help='vocabulary size', type=int)
-    # parser.add_argument('--vocab_dim', default=200, help='vocabulary dimension', type=int)
+    parser.add_argument('--init_scale', default=0.04, help='the initial scale of the weights', type = float)
+    parser.add_argument('--max_grad_norm', default=10, help='the maximum permissible norm of the gradient', type=float)
+    # parser.add_argument('--max_epoch', default=14, help='the number of epochs trained with the initial learning rate', type=int) -- decay step
+    parser.add_argument('--max_max_epoch', default=55, help='the total number of epochs for training', type=int)
+    parser.add_argument('--keep_prob', default=0.35, help='the probability of keeping weights in the dropout layer', type=float)
+    # vocabulary
+    parser.add_argument('--vocab_dim', default=200, help='vocabulary dimension', type=int)
 
     """
     params for prepare data
@@ -71,10 +69,10 @@ if __name__ == '__main__':
     FLAGS = parser.parse_args()
     arg_parse_print(FLAGS)
 
-    if FLAGS.task == 'train_ptb':
-        # tl.files.load_mnist_dataset()
+    if FLAGS.task == 'train_nmt':
         print('train vanilla translation model.')
-    elif FLAGS.task == 'test_ptb':
+        translation_vanilla.train_rnn(FLAGS)
+    elif FLAGS.task == 'test_nmt':
         print('test vanilla translation model.')
         # test_rnn(FLAGS)
     elif FLAGS.task =='prepare_data':

@@ -31,8 +31,7 @@ translation data prepare:
 import os
 import json
 import nltk
-from tqdm import tqdm
-from collections import OrderedDict
+from myutil import pathutil
 
 
 # nltk.download('punkt') # in case exception 'Failed loading english.pickle with nltk.data.load' occurs
@@ -164,6 +163,34 @@ def load_dict(dict_path):
     for i in range(10):
         print('{}:{}'.format(i, id_to_word[i]))
     return word_to_id, id_to_word
+
+def load_source_target_id_corpus(file_path):
+    """
+    加载id表示的语料，每一行是{'source':xxx, 'target':ooo}
+    :param file_path:
+    :return:
+    """
+    string_pair_list = []
+    with open(file_path, 'r') as reader:
+        line = reader.readline()
+        while line:
+            string_pair = json.loads(line)
+            string_pair_list.append(string_pair)
+            line = reader.readline()
+    return string_pair_list
+
+def load_sub_files(file_dir):
+    """
+    获取训练文件子文件
+    :param file_dir:
+    :return:
+    """
+    file_obs_list, file_list = pathutil.list_files(file_dir)
+    sub_files = []
+    for file_obs, file_rel in zip(file_obs_list, file_list):
+        if 'id' in file_rel:
+            sub_files.append(file_obs)
+    return sub_files
 
 
 if __name__ == '__main__':

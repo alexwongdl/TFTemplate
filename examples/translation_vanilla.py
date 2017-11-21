@@ -12,7 +12,9 @@ decoder.py
 helper.py
 loss.py
 
-Corpus：https://nlp.stanford.edu/projects/nmt/
+Corpus：
+        * French-English:http://113.215.21.41/1Q2W3E4R5T6Y7U8I9O0P1Z2X3C4V5B/www.statmt.org/wmt10/training-giga-fren.tar
+        https://nlp.stanford.edu/projects/nmt/
         http://www.statmt.org/moses/?n=Moses.LinksToCorpora
         https://github.com/ajinkyakulkarni14/TED-Multilingual-Parallel-Corpus
 
@@ -22,6 +24,7 @@ dataset：
 
 import tensorflow as tf
 import tensorlayer as tl
+import translation_data_prepare
 
 def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
     print('construct rnn model')
@@ -243,10 +246,6 @@ def train_rnn(FLAGS):
 # 6.testing
 def test(FLAGS):
     print("start test rnn model")
-    train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(data_path=FLAGS.input_dir)
-    x_test = tf.placeholder(dtype=tf.int32, shape=[1, 1], name='x_test')
-    y_test = tf.placeholder(dtype=tf.int32, shape=[1, 1], name='y_test')
-    x_test_data, y_test_data, test_epoch_size = ptb_reader.ptb_data_batch(test_data, 1, 1)
     #TODO: load pretrained model and run test
 
 
