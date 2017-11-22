@@ -18,5 +18,6 @@ python MainEntry.py \
     --init_scale=0.04 \
     --max_grad_norm=10 \
     --keep_prob=0.35 \
+    --vocab_size=40000 \
     --vocab_dim=200
 

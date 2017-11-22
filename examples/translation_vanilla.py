@@ -26,14 +26,14 @@ import tensorflow as tf
 import tensorlayer as tl
 import translation_data_prepare
 
-def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
+def rnn_model(x_input, y_input, x_length, y_length, reuse, is_training, FLAGS):
     print('construct rnn model')
     # rnn_mode - the low level implementation of lstm cell: one of CUDNN, BASIC, or BLOCK, representing cudnn_lstm, basic_lstm, and lstm_block_cell classes.
     #construct graph
 
     ## warn: 使用tf.random_normal_initializer可能导致模型无法收敛
     initializer = tf.random_uniform_initializer(-FLAGS.init_scale, FLAGS.init_scale)
-    with tf.variable_scope('ptb_model', reuse=reuse):
+    with tf.variable_scope('nmt_model', reuse=reuse):
         tl.layers.set_name_reuse(reuse)
         net = tl.layers.EmbeddingInputlayer(x_input, vocabulary_size=FLAGS.vocab_size, embedding_size=FLAGS.vocab_dim,
                                             E_init=initializer, name='embedding')
