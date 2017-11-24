@@ -26,36 +26,41 @@ import tensorflow as tf
 import tensorlayer as tl
 import translation_data_prepare
 
+# tl.layers.Seq2Seq()
 
-def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
+def rnn_model(x_input, y_input, x_length, y_length, target_weight, reuse, is_training, FLAGS):
     print('construct rnn model')
     # rnn_mode - the low level implementation of lstm cell: one of CUDNN, BASIC, or BLOCK, representing cudnn_lstm, basic_lstm, and lstm_block_cell classes.
     #construct graph
 
     ## warn: 使用tf.random_normal_initializer可能导致模型无法收敛
     initializer = tf.random_uniform_initializer(-FLAGS.init_scale, FLAGS.init_scale)
-    with tf.variable_scope('ptb_model', reuse=reuse):
+    with tf.variable_scope('nmt_model', reuse=reuse):
         tl.layers.set_name_reuse(reuse)
-        net = tl.layers.EmbeddingInputlayer(x_input, vocabulary_size=FLAGS.vocab_size, embedding_size=FLAGS.vocab_dim,
-                                            E_init=initializer, name='embedding')
-        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='dropout_embed')
-        net = tl.layers.RNNLayer(net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell,
-                                 cell_init_args={'forget_bias': 0.0, 'state_is_tuple': True}, n_hidden=FLAGS.vocab_dim, \
-                                 initializer=initializer, n_steps=FLAGS.num_steps, return_last=False,
-                                 name='rnn_layer_1')
-        lstm_1 = net
-        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='dropout_1')
-        net = tl.layers.RNNLayer(net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell,
-                                 cell_init_args={'forget_bias': 0.0, 'state_is_tuple': True}, n_hidden=FLAGS.vocab_dim, \
-                                 initializer=initializer, n_steps=FLAGS.num_steps, return_last=False,
-                                 return_seq_2d=True, name='rnn_layer_2')
-        lstm_2 = net
-        net = tl.layers.DropoutLayer(net, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='dropout_2')
+        source_input = tl.layers.EmbeddingInputlayer(x_input, vocabulary_size=FLAGS.vocab_size, embedding_size=FLAGS.vocab_dim,
+                                            E_init=initializer, name='source_embedding')
+        target_input = tl.layers.EmbeddingInputlayer(y_input, vocabulary_size=FLAGS.vocab_size, embedding_size=FLAGS.vocab_dim,
+                                            E_init=initializer, name='target_embedding')
+
+        encode_net = tl.layers.DropoutLayer(source_input, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='source_dropout_embed')
+        encode_net = tl.layers.DynamicRNNLayer(encode_net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell,
+                                               cell_init_args={'forget_bias': 0.0, 'state_is_tuple': True}, n_hidden=FLAGS.vocab_dim,
+                                               initializer=initializer, sequence_length=x_length, return_seq_2d=True,
+                                               return_last=False, name='encode_rnn') #取最终结果
+
+        decode_net = tl.layers.DropoutLayer(target_input, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='target_dropout_embed')
+        decode_net = tl.layers.DynamicRNNLayer(decode_net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell,
+                                               cell_init_args={'forget_bias': 0.0, 'state_is_tuple': True}, n_hidden=FLAGS.vocab_dim,
+                                               initial_state=encode_net.final_state,
+                                               initializer=initializer, sequence_length=y_length, return_seq_2d=True,
+                                               return_last=False, name='decode_rnn')
+
+        net = tl.layers.DropoutLayer(decode_net, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='dropout_2')
         # lstm 的输出结果用DenseLayer投影到字典上
         net = tl.layers.DenseLayer(net, n_units=FLAGS.vocab_size, W_init=initializer, b_init=initializer,
                                    act=tf.identity, name='denselayer')
         output = net.outputs
-        predict = tf.reshape(tf.arg_max(output, 1), shape=[FLAGS.batch_size, FLAGS.num_steps], name='predict')
+        predict = tf.reshape(tf.arg_max(output, 1), shape=[FLAGS.batch_size, -1], name='predict')
 
         ## loss function  tf.contrib.legacy_seq2seq.sequence_loss_by_example
         """
@@ -80,9 +85,9 @@ def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
                                                                   weights=[tf.ones_like(tf.reshape(y_input, [-1]),
                                                                                         dtype=tf.float32)], \
                                                                   name='sequence_loss_by_example')
-        cost = tf.reduce_sum(loss) / FLAGS.batch_size
+        cost = tf.reduce_sum(loss * target_weight) / FLAGS.batch_size
 
-        return net, cost, lstm_1, lstm_2, loss, predict
+        return net, cost, encode_net, decode_net, loss, predict
 
 
 def train_rnn(FLAGS):
@@ -126,6 +131,7 @@ def train_rnn(FLAGS):
     # 4.summary
     tf.summary.scalar('cost', cost)
     tf.summary.scalar('learning_rate', learning_rate)
+    
 
     # 5.training、valid、save check point in loops
     saver = tf.train.Saver()

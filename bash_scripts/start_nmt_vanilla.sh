@@ -16,7 +16,8 @@ python MainEntry.py \
     --print_info_freq=100 \
     --valid_freq=10000 \
     --init_scale=0.04 \
-    --max_grad_norm=10 \
+    --max_grad_norm=5 \
     --keep_prob=0.35 \
+    --vocab_size=40000 \
     --vocab_dim=200
 
