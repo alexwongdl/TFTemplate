@@ -26,6 +26,7 @@ import tensorflow as tf
 import tensorlayer as tl
 import translation_data_prepare
 
+
 def rnn_model(x_input, y_input, reuse, is_training, FLAGS):
     print('construct rnn model')
     # rnn_mode - the low level implementation of lstm cell: one of CUDNN, BASIC, or BLOCK, representing cudnn_lstm, basic_lstm, and lstm_block_cell classes.
