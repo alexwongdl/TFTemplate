@@ -21,14 +21,15 @@ Corpus：
 dataset：
         training-giga-fren.tar(French-English)：http://www.statmt.org/wmt10/training-giga-fren.tar
 """
-
+import time
+import os
 import tensorflow as tf
 import tensorlayer as tl
-import translation_data_prepare
+from examples import translation_data_prepare
 
 # tl.layers.Seq2Seq()
 
-def rnn_model(x_input, y_input, x_length, y_length, target_weight, reuse, is_training, FLAGS):
+def rnn_model(x_input, y_input, target, x_length, y_length, target_weight, reuse, is_training, FLAGS):
     print('construct rnn model')
     # rnn_mode - the low level implementation of lstm cell: one of CUDNN, BASIC, or BLOCK, representing cudnn_lstm, basic_lstm, and lstm_block_cell classes.
     #construct graph
@@ -81,11 +82,10 @@ def rnn_model(x_input, y_input, x_length, y_length, target_weight, reuse, is_tra
          Returns:
            1D batch-sized float Tensor: The log-perplexity for each sequence.
         """
-        loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(logits=[output], targets=[tf.reshape(y_input, [-1])], \
-                                                                  weights=[tf.ones_like(tf.reshape(y_input, [-1]),
-                                                                                        dtype=tf.float32)], \
+        loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(logits=[output], targets=[tf.reshape(target, [-1])], \
+                                                                  weights=[tf.reshape(target_weight, [-1])], \
                                                                   name='sequence_loss_by_example')
-        cost = tf.reduce_sum(loss * target_weight) / FLAGS.batch_size
+        cost = tf.reduce_sum(loss) / FLAGS.batch_size
 
         return net, cost, encode_net, decode_net, loss, predict
 
@@ -94,27 +94,29 @@ def train_rnn(FLAGS):
     print("start train rnn model")
     # 2.load data/dict
     fr_word_to_id, fr_id_to_word = translation_data_prepare.load_dict(FLAGS.dict_one_path)
-    en_word_to_id, en_id_to_word = translation_data_prepare.load_dict(FLAGS.dic_two_path)
+    en_word_to_id, en_id_to_word = translation_data_prepare.load_dict(FLAGS.dict_two_path)
+    sub_files, _ = translation_data_prepare.load_sub_files(FLAGS.input_dir)
 
-    train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(data_path=FLAGS.input_dir)
-    # x_train, y_train, train_epoch_size = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size,
-    #                                                                num_steps=FLAGS.num_steps)
-    x_train_data, y_train_data, train_epoch_size = ptb_reader.ptb_data_batch(train_data, batch_size=FLAGS.batch_size,
-                                                                             num_steps=FLAGS.num_steps)
+    valid_file = sub_files[15]
+    train_files = sub_files
+    del train_files[15]
+    print('len of sub_files:{}, len of valid_file:{}, len of train_files:{}'.format(len(sub_files), len(valid_file), len(train_files)))
+
 
     # 3.build graph：including loss function，learning rate decay，optimization operation
-    x_train = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='x_train')
-    y_train = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='y_train')
-    net, cost, lstm_train_1, lstm_train_2, _, _ = rnn_model(x_train, y_train, False, is_training=True,
-                                                            FLAGS=FLAGS)  # train
+    x_train = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, None], name='x_train')
+    y_train = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, None], name='y_train')
+    target = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, None], name='target')
+    x_length = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size], name='x_length')
+    y_length = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size], name='y_length')
+    target_weight = tf.placeholder(dtype=tf.float16, shape=[FLAGS.batch_size, None], name='target_weight') #same size as y_train
 
-    # x_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='x_test')
-    # y_test = tf.placeholder(dtype=tf.int32, shape=[None, FLAGS.num_steps], name='y_test')
-    x_valid_data, y_valid_data, valid_epoch_size = ptb_reader.ptb_data_batch(valid_data, FLAGS.batch_size,
-                                                                             FLAGS.num_steps)
-    net_valid, cost_valid, lstm_val_1, lstm_val_2, _, predict = rnn_model(x_train, y_train, True, is_training=False,
-                                                                          FLAGS=FLAGS)  # validate/test
-    validate_batch_num = valid_epoch_size
+    # def rnn_model(x_input, y_input, target, x_length, y_length, target_weight, reuse, is_training, FLAGS):
+    net_train, cost_train, encode_net_train, decode_net_train, _, _ = rnn_model(x_train, y_train, target, x_length, y_length, target_weight,
+                                                                                False, is_training=True, FLAGS=FLAGS)  # train
+
+    net_valid, cost_valid, encode_net_valid, encode_net_valid, _, predict = rnn_model(x_train, y_train, target, x_length, y_length, target_weight,
+                                                                                True, is_training=False, FLAGS=FLAGS)  # validate/test
 
     global_step = tf.contrib.framework.get_or_create_global_step()
     learning_rate = tf.train.exponential_decay(FLAGS.learning_rate, global_step, FLAGS.decay_step, FLAGS.decay_rate,
@@ -127,12 +129,12 @@ def train_rnn(FLAGS):
     # train_op = tf.train.AdamOptimizer(learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08, use_locking=False).minimize(
     #         cost, var_list=train_params)
     train_vars = tf.trainable_variables()
-    grads, _ = tf.clip_by_global_norm(tf.gradients(cost, train_vars), clip_norm=FLAGS.max_grad_norm, name='clip_grads')
+    grads, _ = tf.clip_by_global_norm(tf.gradients(cost_train, train_vars), clip_norm=FLAGS.max_grad_norm, name='clip_grads')
     train_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).apply_gradients(zip(grads, train_vars))
     init_op = tf.global_variables_initializer()
 
     # 4.summary
-    tf.summary.scalar('cost', cost)
+    tf.summary.scalar('cost', cost_train)
     tf.summary.scalar('learning_rate', learning_rate)
     
 
@@ -146,72 +148,57 @@ def train_rnn(FLAGS):
         with sess.as_default():
             # tl.layers.initialize_global_variables(sess)
             init_ = sess.run(init_op)
-            net.print_params()
-            net.print_layers()
+            net_train.print_params()
+            net_train.print_layers()
             tl.layers.print_all_variables()
 
         # load check point if FLAGS.checkpoint is not None
         if FLAGS.checkpoint is not None:
             saver.restore(sess, FLAGS.checkpoint)
 
-        for round in range(FLAGS.max_max_epoch):
-            # lstm初始化
-            # with sess.as_default():
-            #     state1 = tl.layers.initialize_rnn_state(lstm_train_1.initial_state)
-            #     state2 = tl.layers.initialize_rnn_state(lstm_train_2.initial_state)
-            state1_init_c, state1_init_h, state_init2_c, state_init2_h = sess.run(
-                    [lstm_train_1.initial_state.c, lstm_train_1.initial_state.h,
-                     lstm_train_2.initial_state.c, lstm_train_2.initial_state.h],
-                    feed_dict={x_train: x_train_data[0], y_train: y_train_data[0]})
-            state1 = (state1_init_c, state1_init_h)
-            state2 = (state_init2_c, state_init2_h)
-
-            for step in range(train_epoch_size):
-                start_time = time.time()
-                fetches = {'train_op': train_op, 'global_step': global_step, 'inc_global_step': incr_global_step,
-                           'lstm1_final_state_c': lstm_train_1.final_state.c,
-                           'lstm1_final_state_h': lstm_train_1.final_state.h,
-                           'lstm2_final_state_c': lstm_train_2.final_state.c,
-                           'lstm2_final_state_h': lstm_train_2.final_state.h}
-                feed_dict = {
-                    lstm_train_1.initial_state.c: state1[0],
-                    lstm_train_1.initial_state.h: state1[1],
-                    lstm_train_2.initial_state.c: state2[0],
-                    lstm_train_2.initial_state.h: state2[1],
-                    x_train: x_train_data[step], y_train: y_train_data[step]
-                }
-
-                if (step + 1) % FLAGS.print_info_freq == 0:
-                    fetches['cost'] = cost
-                    fetches['learning_rate'] = learning_rate
-
-                if (step + 1) % FLAGS.summary_freq == 0:
-                    fetches['summary_op'] = sv.summary_op
-
-                result = sess.run(fetches, feed_dict=feed_dict)
-                state1 = (result['lstm1_final_state_c'], result['lstm1_final_state_h'])
-                state2 = (result['lstm2_final_state_c'], result['lstm2_final_state_h'])
-
-                if (step + 1) % FLAGS.print_info_freq == 0:
-                    rate = FLAGS.batch_size / (time.time() - start_time)
-                    print("epoch:{}\t, rate:{:.2f} sentences/sec".format(round, rate))
-                    print("global step:{}".format(result['global_step']))
-                    print("cost:{:.4f}".format(result['cost']))
-                    print("learning rate:{:.6f}".format(result['learning_rate']))
-                    print(state1[0])
-                    print()
-
-                if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
-                    print("save model")
-                    if not os.path.exists(FLAGS.save_model_dir):
-                        os.mkdir(FLAGS.save_model_dir)
-                    saver.save(sess, os.path.join(FLAGS.save_model_dir, 'model'), global_step=global_step)
-
-                if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
-                    print("validate model...")
-                    # 初始化lstm
-
-                    # print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
+        # for round in range(FLAGS.max_max_epoch):
+        #
+        #     for file_index in range(len(train_files)): #遍历文件
+        #
+        #
+        #         for step in range(train_epoch_size):
+        #             start_time = time.time()
+        #             fetches = {'train_op': train_op, 'global_step': global_step, 'inc_global_step': incr_global_step}
+        #             feed_dict = {
+        #                 x_train: x_train_data[step], y_train: y_train_data[step]
+        #             }
+        #
+        #             if (step + 1) % FLAGS.print_info_freq == 0:
+        #                 fetches['cost'] = cost_train
+        #                 fetches['learning_rate'] = learning_rate
+        #
+        #             if (step + 1) % FLAGS.summary_freq == 0:
+        #                 fetches['summary_op'] = sv.summary_op
+        #
+        #             result = sess.run(fetches, feed_dict=feed_dict)
+        #             state1 = (result['lstm1_final_state_c'], result['lstm1_final_state_h'])
+        #             state2 = (result['lstm2_final_state_c'], result['lstm2_final_state_h'])
+        #
+        #             if (step + 1) % FLAGS.print_info_freq == 0:
+        #                 rate = FLAGS.batch_size / (time.time() - start_time)
+        #                 print("epoch:{}\t, rate:{:.2f} sentences/sec".format(round, rate))
+        #                 print("global step:{}".format(result['global_step']))
+        #                 print("cost:{:.4f}".format(result['cost']))
+        #                 print("learning rate:{:.6f}".format(result['learning_rate']))
+        #                 print(state1[0])
+        #                 print()
+        #
+        #             if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
+        #                 print("save model")
+        #                 if not os.path.exists(FLAGS.save_model_dir):
+        #                     os.mkdir(FLAGS.save_model_dir)
+        #                 saver.save(sess, os.path.join(FLAGS.save_model_dir, 'model'), global_step=global_step)
+        #
+        #             if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
+        #                 print("validate model...")
+        #                 # 初始化lstm
+        #
+        #                 # print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
 
         print('optimization finished!')
 

@@ -14,7 +14,7 @@ import os
 import argparse
 
 from myutil.myprint import *
-from examples.translation_data_prepare import prepare_data, corpora_to_id
+from examples.translation_data_prepare import prepare_data, corpora_to_id, format_files
 from examples import translation_vanilla
 
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
@@ -63,10 +63,16 @@ if __name__ == '__main__':
     parser.add_argument('--corpora_one_path', default=None, help='path of corpora one')
     parser.add_argument('--corpora_two_path', default=None, help='path of corpora two')
 
-    parser.add_argument('--corpora_combine_path', default=None, help='path of combine one and two corpora')
     parser.add_argument('--dict_one_path', default=None, help='path of dict one')
-    parser.add_argument('--dic_two_path', default=None, help='path of dict two')
+    parser.add_argument('--dict_two_path', default=None, help='path of dict two')
+
+    # 把corpora_one_path和corpora_two_path整合到同一个文件corpora_combine_path，再字典映射到corpora_combine_ID_path
+    parser.add_argument('--corpora_combine_path', default=None, help='path of combine one and two corpora')
     parser.add_argument('--corpora_combine_ID_path', default=None, help='path of combine one and two corpora with number representation')
+
+    # 使用split命令把 corpora_combine_ID_path 划分成小文件, 这些小文件保存在corpora_raw_id_dir， 把这些小文件格式化成运行时数据格式corpora_format_dir
+    parser.add_argument('--corpora_raw_id_dir', default=None, help='split file corpora_combine_ID_path in to subfiles.')
+    parser.add_argument('--corpora_format_dir', default=None, help='format files in corpora_raw_id_dir')
 
     FLAGS = parser.parse_args()
     arg_parse_print(FLAGS)
@@ -84,4 +90,6 @@ if __name__ == '__main__':
                      FLAGS.dict_one_path, FLAGS.dic_two_path, FLAGS.corpora_combine_ID_path)
     elif FLAGS.task == 'corpus_to_id':
         corpora_to_id(FLAGS.corpora_one_path, FLAGS.corpora_two_path, FLAGS.corpora_combine_path,
-                     FLAGS.dict_one_path, FLAGS.dic_two_path, FLAGS.corpora_combine_ID_path)
+                     FLAGS.dict_one_path, FLAGS.dict_two_path, FLAGS.corpora_combine_ID_path)
+    elif FLAGS.task == 'corpus_batch_prepare':
+        format_files(FLAGS.corpora_raw_id_dir, FLAGS.corpora_format_dir, FLAGS.batch_size, FLAGS.dict_one_path, FLAGS.dict_two_path)

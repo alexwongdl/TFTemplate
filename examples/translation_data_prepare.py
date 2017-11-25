@@ -186,11 +186,126 @@ def load_sub_files(file_dir):
     :return:
     """
     file_obs_list, file_list = pathutil.list_files(file_dir)
-    sub_files = []
+    sub_files_obs = []
+    sub_files_rel = []
     for file_obs, file_rel in zip(file_obs_list, file_list):
         if 'id' in file_rel:
-            sub_files.append(file_obs)
-    return sub_files
+            sub_files_obs.append(file_obs)
+            sub_files_rel.append(file_rel)
+    return sub_files_obs, sub_files_rel
+
+def load_train_data(file_path):
+    """
+    加载训练数据
+    :param file_path:
+    :return:
+    """
+    print("load " + file_path)
+    data_list = []
+    with open(file_path, 'r') as reader:
+        line = reader.readline()
+        while line:
+            ids_dict = json.loads(line)
+            data_list.append(ids_dict)
+            line = reader.readline()
+    print('load {} records .'.format(len(data_list)))
+    for i in range(3):
+        print(json.dumps(data_list[i]))
+    return data_list
+
+def format_data(file_path, batch_size):
+    """
+    加载训练数据，整理成batch_size的形式
+    :param file_path:
+    :param batch_size:
+    :return: x_batch_list, y_batch_list, target_list,  x_length_list, y_length_list, target_weight_list
+    """
+    print('format file: ' + file_path)
+    _PAD =  0
+    _GO = 1
+    _EOS = 2
+
+    data_list = load_train_data(file_path)
+    data_batch = []
+
+    batch_num = len(data_list) // batch_size
+    for i in range(batch_num):
+        temp_data_list = data_list[i*batch_size : (i+1)*batch_size]
+        temp_x_list, temp_y_list, temp_target_list, temp_x_len_list, temp_y_len_list, temp_target_weight_list = [],[],[],[],[],[]
+        for data in temp_data_list:
+            temp_x_len_list.append(len(data['source']))
+            temp_y_len_list.append(len(data['target']) + 1) # first item is <_GO>
+        max_x_len = max(temp_x_len_list)
+        max_y_len = max(temp_y_len_list)
+        for data in temp_data_list:
+            len_source =  len(data['source'])
+            len_target = len(data['target'])
+
+            temp_x = data['source']
+            temp_x.extend([_PAD] * (max_x_len - len_source))
+
+            temp_y = [_GO]
+            temp_y.extend(data['target'])
+            temp_y.extend([_PAD] * (max_y_len - 1 - len_target))
+
+            temp_target = data['target']
+            temp_target.extend([_EOS])
+            temp_target.extend([_PAD] * (max_y_len - 1 - len_target))
+
+            temp_target_weight = [1.0] * (len_target + 1)
+            temp_target_weight.extend([0.0] * (max_y_len - len_target - 1))
+
+            temp_x_list.append(temp_x)
+            temp_y_list.append(temp_y)
+            temp_target_list.append(temp_target)
+            temp_target_weight_list.append(temp_target_weight)
+
+        info = {'x_list':temp_x_list, 'y_list':temp_y_list, 'target_list':temp_target_list,
+                'x_len_list':temp_x_len_list, 'y_len_list':temp_y_len_list, 'target_weight':temp_target_weight_list}
+
+        data_batch.append(info)
+    return data_batch
+
+def format_files(input_dir, output_dir, batch_size, source_dict_path, target_dict_path ):
+    """
+    输入文件格式化后输出到output_dir
+    :param input_dir:
+    :param output_dir:
+    :param batch_size:
+    :return:
+    """
+    _, source_id_to_word = load_dict(source_dict_path)
+    _, target_id_to_word = load_dict(target_dict_path)
+
+    sub_files_obs, sub_files_rel = load_sub_files(input_dir)
+    for sub_file_obs, sub_file_rel in zip(sub_files_obs, sub_files_rel):
+        data_batch = format_data(sub_file_obs, batch_size)
+        count = 0
+        with open(os.path.join(output_dir, sub_file_rel) , 'w') as writer:
+            for data in data_batch:
+                writer.write(json.dumps(data) + '\n')
+                count += 1
+                if count < 3:
+                    print('x_list:')
+                    print(batch_id_to_word(data['x_list'], source_id_to_word))
+                    print('x_len_list:')
+                    print(data['x_len_list'])
+                    print('y_list:')
+                    print(batch_id_to_word(data['y_list'], target_id_to_word))
+                    print('y_len_list:')
+                    print(data['y_len_list'])
+                    print('target_list:')
+                    print(batch_id_to_word(data['target_list'], target_id_to_word))
+                    print('target_weight:')
+                    print(data['target_weight'])
+                    print("--------------------------------------------------------")
+
+def batch_id_to_word(id_list_list, id_to_word_dict):
+    result = []
+    for id_list in id_list_list:
+        temp_result = [id_to_word_dict[id] for id in id_list]
+        result.append(temp_result)
+    return result
 
 
 if __name__ == '__main__':

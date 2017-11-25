@@ -4,6 +4,7 @@ python MainEntryNMT_vanilla.py \
     --task=train_nmt \
     --is_training=True \
     --max_iter=200000 \
+    --max_max_epoch=55 \
     --batch_size=16 \
     --learning_rate=0.01 \
     --decay_step=10000 \
@@ -21,5 +22,5 @@ python MainEntryNMT_vanilla.py \
     --vocab_size=40000 \
     --vocab_dim=200 \
     --dict_one_path=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/fr_dict \
-    --dic_two_path=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/en_dict
+    --dict_two_path=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/en_dict
 
