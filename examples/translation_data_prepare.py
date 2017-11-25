@@ -298,6 +298,10 @@ def format_files(input_dir, output_dir, batch_size, source_dict_path, target_dic
                     print(batch_id_to_word(data['target_list'], target_id_to_word))
                     print('target_weight:')
                     print(data['target_weight'])
+                    print('target_weight_sum:')
+                    print([sum(row) for row in data['target_weight']])
+                    print('target_weight_len:')
+                    print([len(row) for row in data['target_weight']])
                     print("--------------------------------------------------------")
 
 def batch_id_to_word(id_list_list, id_to_word_dict):

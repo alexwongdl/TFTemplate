@@ -11,5 +11,5 @@ python MainEntryNMT_vanilla.py \
     --corpora_combine_ID_path=${root_data_path}/giga-fr-en-id \
     --batch_size=16 \
     --corpora_raw_id_dir=${root_data_path}/subfiles \
-    --corpora_format_dir=/home/recsys/hzwangjian1/tensorflow/nmt/subfiles_format
+    --corpora_format_dir=/data/hzwangjian1/tensorflow/nmt/subfiles_format
 
