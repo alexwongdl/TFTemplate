@@ -60,8 +60,9 @@ if __name__ == '__main__':
     """
     params for prepare data
     """
-    parser.add_argument('--corpora_one_path', default=None, help='path of corpora one')
-    parser.add_argument('--corpora_two_path', default=None, help='path of corpora two')
+    parser.add_argument('--source_dict', default=None, help='source dict')
+    parser.add_argument('--target_dict', default=None, help='target dict')
+
     parser.add_argument('--corpora_combine_path', default=None, help='path of combine one and two corpora')
     parser.add_argument('--dict_one_path', default=None, help='path of dict one')
     parser.add_argument('--dic_two_path', default=None, help='path of dict two')

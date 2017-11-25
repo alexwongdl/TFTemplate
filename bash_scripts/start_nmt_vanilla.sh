@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python MainEntry.py \
+python MainEntryNMT_vanilla.py \
     --task=train_nmt \
     --is_training=True \
     --max_iter=200000 \
@@ -19,5 +19,7 @@ python MainEntry.py \
     --max_grad_norm=5 \
     --keep_prob=0.35 \
     --vocab_size=40000 \
-    --vocab_dim=200
+    --vocab_dim=200 \
+    --source_dict=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/fr_dict \
+    --target_dict=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/en_dict
 

@@ -92,7 +92,10 @@ def rnn_model(x_input, y_input, x_length, y_length, target_weight, reuse, is_tra
 
 def train_rnn(FLAGS):
     print("start train rnn model")
-    # 2.load data
+    # 2.load data/dict
+    fr_word_to_id, fr_id_to_word = translation_data_prepare.load_dict(FLAGS.source_dict)
+    en_word_to_id, en_id_to_word = translation_data_prepare.load_dict(FLAGS.target_dict)
+
     train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(data_path=FLAGS.input_dir)
     # x_train, y_train, train_epoch_size = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size,
     #                                                                num_steps=FLAGS.num_steps)
@@ -206,46 +209,8 @@ def train_rnn(FLAGS):
                 if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
                     print("validate model...")
                     # 初始化lstm
-                    val_state1_init_c, val_state1_init_h, val_state_init2_c, val_state_init2_h = sess.run(
-                            [lstm_val_1.initial_state.c, lstm_val_1.initial_state.h,
-                             lstm_val_2.initial_state.c, lstm_val_2.initial_state.h],
-                            feed_dict={x_train: x_valid_data[0], y_train: y_valid_data[0]})
-                    val_state1 = (val_state1_init_c, val_state1_init_h)
-                    val_state2 = (val_state_init2_c, val_state_init2_h)
 
-                    fetches = {'cost': cost_valid, 'predict': predict,
-                               'val_lstm1_final_state_c': lstm_val_1.final_state.c,
-                               'val_lstm1_final_state_h': lstm_val_1.final_state.h,
-                               'val_lstm2_final_state_c': lstm_val_2.final_state.c,
-                               'val_lstm2_final_state_h': lstm_val_2.final_state.h}
-
-                    total_cost = 0
-                    total_num = 0
-                    for i in range(validate_batch_num):
-                        batch_x_test = x_valid_data[i]
-                        batch_y_test = y_valid_data[i]
-                        feed_dict = {x_train: batch_x_test, y_train: batch_y_test,
-                                     lstm_val_1.initial_state.c : val_state1[0],
-                                     lstm_val_1.initial_state.h : val_state1[1],
-                                     lstm_val_2.initial_state.c : val_state2[0],
-                                     lstm_val_2.initial_state.h : val_state2[1]}
-                        test_result = sess.run(fetches, feed_dict=feed_dict)
-                        val_state1 = (test_result['val_lstm1_final_state_c'], test_result['val_lstm1_final_state_h'])
-                        val_state2 = (test_result['val_lstm2_final_state_c'], test_result['val_lstm2_final_state_h'])
-
-                        total_cost += test_result['cost'] * FLAGS.batch_size
-                        total_num += FLAGS.batch_size
-                        predict_val = test_result['predict']
-                        if i < 5:
-                            # for index in range(len(batch_x_test)):
-                            for index in range(4):
-                                print("predict_data:{}".format(
-                                        [id_to_word[id] for id in predict_val[index] if id in id_to_word]))
-                                # print("predict_data:{}".format(predict_val))
-                                print("y_data:{}".format(
-                                        [id_to_word[id] for id in batch_y_test[index] if id in id_to_word]))
-                    valid_cost = total_cost / total_num
-                    print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
+                    # print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
 
         print('optimization finished!')
 
