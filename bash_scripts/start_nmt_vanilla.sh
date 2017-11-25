@@ -20,6 +20,6 @@ python MainEntryNMT_vanilla.py \
     --keep_prob=0.35 \
     --vocab_size=40000 \
     --vocab_dim=200 \
-    --source_dict=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/fr_dict \
-    --target_dict=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/en_dict
+    --dict_one_path=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/fr_dict \
+    --dic_two_path=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/en_dict
 

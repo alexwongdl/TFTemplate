@@ -93,8 +93,8 @@ def rnn_model(x_input, y_input, x_length, y_length, target_weight, reuse, is_tra
 def train_rnn(FLAGS):
     print("start train rnn model")
     # 2.load data/dict
-    fr_word_to_id, fr_id_to_word = translation_data_prepare.load_dict(FLAGS.source_dict)
-    en_word_to_id, en_id_to_word = translation_data_prepare.load_dict(FLAGS.target_dict)
+    fr_word_to_id, fr_id_to_word = translation_data_prepare.load_dict(FLAGS.dict_one_path)
+    en_word_to_id, en_id_to_word = translation_data_prepare.load_dict(FLAGS.dic_two_path)
 
     train_data, test_data, valid_data, word_to_id, id_to_word = ptb_reader.ptb_raw_data(data_path=FLAGS.input_dir)
     # x_train, y_train, train_epoch_size = ptb_reader.ptb_data_queue(train_data, batch_size=FLAGS.batch_size,
