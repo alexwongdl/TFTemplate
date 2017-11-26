@@ -26,6 +26,7 @@ import os
 import tensorflow as tf
 import tensorlayer as tl
 from examples import translation_data_prepare
+from myutil import printutil
 
 # tl.layers.Seq2Seq()
 
@@ -190,10 +191,12 @@ def train_rnn(FLAGS):
                         print("cost:{:.4f}".format(result['cost']))
                         print("learning rate:{:.6f}".format(result['learning_rate']))
                         encode_final_state = result['encode_final_state']
-                        print(encode_final_state[0].c)
-                        print(encode_final_state[0].h)
-                        print(encode_final_state[1].c)
-                        print(encode_final_state[1].h)
+
+                        if(step + 1) % 1000 == 0:
+                            print(encode_final_state[0].c)
+                            print(encode_final_state[0].h)
+                            print(encode_final_state[1].c)
+                            print(encode_final_state[1].h)
                         print()
 
                     if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
@@ -217,9 +220,9 @@ def train_rnn(FLAGS):
                             }
                             result_valid = sess.run(fetches, feed_dict=feed_dict)
                             valid_cost += result_valid['cost_valid']
-                        valid_cost /= len(valid_data_list)
-                        print("average valid cost:{:.5f} one {} sentences".format(valid_cost, valid_num * FLAGS.batch_size))
-
+                        valid_cost /= valid_num
+                        # print("average valid cost:{:.5f} on {} sentences".format(valid_cost, valid_num * FLAGS.batch_size))
+                        printutil.mod_print("average valid cost:{:.5f} on {} sentences".format(valid_cost, valid_num * FLAGS.batch_size), fg=printutil.ANSI_WHITE, bg=printutil.ANSI_GREEN_BACKGROUND, mod=printutil.MOD_UNDERLINE)
         print('optimization finished!')
 
 # 6.testing

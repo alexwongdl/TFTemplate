@@ -11,7 +11,7 @@ python MainEntryNMT_vanilla.py \
     --decay_rate=0.99 \
     --input_dir=/data/hzwangjian1/tensorflow/nmt/subfiles_format \
     --save_model_dir=/home/recsys/hzwangjian1/learntf/nmt_vanilla_model \
-    --save_model_freq=1000 \
+    --save_model_freq=10000 \
     --summary_dir=/home/recsys/hzwangjian1/learntf/nmt_vanilla_summary \
     --summary_freq=100 \
     --print_info_freq=100 \
