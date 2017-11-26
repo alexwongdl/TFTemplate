@@ -47,14 +47,14 @@ def rnn_model(x_input, y_input, target, x_length, y_length, target_weight, reuse
         encode_net = tl.layers.DynamicRNNLayer(encode_net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell,
                                                cell_init_args={'forget_bias': 0.0, 'state_is_tuple': True}, n_hidden=FLAGS.vocab_dim,
                                                initializer=initializer, sequence_length=x_length, return_seq_2d=True,
-                                               return_last=False, name='encode_rnn') #取最终结果
+                                               n_layer=2, return_last=False, name='encode_rnn') #取最终结果
 
         decode_net = tl.layers.DropoutLayer(target_input, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='target_dropout_embed')
         decode_net = tl.layers.DynamicRNNLayer(decode_net, cell_fn=tf.nn.rnn_cell.BasicLSTMCell,
                                                cell_init_args={'forget_bias': 0.0, 'state_is_tuple': True}, n_hidden=FLAGS.vocab_dim,
                                                initial_state=encode_net.final_state,
                                                initializer=initializer, sequence_length=y_length, return_seq_2d=True,
-                                               return_last=False, name='decode_rnn')
+                                               n_layer=2, return_last=False, name='decode_rnn')
 
         net = tl.layers.DropoutLayer(decode_net, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training, name='dropout_2')
         # lstm 的输出结果用DenseLayer投影到字典上
@@ -109,7 +109,7 @@ def train_rnn(FLAGS):
     target = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, None], name='target')
     x_length = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size], name='x_length')
     y_length = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size], name='y_length')
-    target_weight = tf.placeholder(dtype=tf.float16, shape=[FLAGS.batch_size, None], name='target_weight') #same size as y_train
+    target_weight = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, None], name='target_weight') #same size as y_train
 
     # def rnn_model(x_input, y_input, target, x_length, y_length, target_weight, reuse, is_training, FLAGS):
     net_train, cost_train, encode_net_train, decode_net_train, _, _ = rnn_model(x_train, y_train, target, x_length, y_length, target_weight,
@@ -156,49 +156,50 @@ def train_rnn(FLAGS):
         if FLAGS.checkpoint is not None:
             saver.restore(sess, FLAGS.checkpoint)
 
-        # for round in range(FLAGS.max_max_epoch):
-        #
-        #     for file_index in range(len(train_files)): #遍历文件
-        #
-        #
-        #         for step in range(train_epoch_size):
-        #             start_time = time.time()
-        #             fetches = {'train_op': train_op, 'global_step': global_step, 'inc_global_step': incr_global_step}
-        #             feed_dict = {
-        #                 x_train: x_train_data[step], y_train: y_train_data[step]
-        #             }
-        #
-        #             if (step + 1) % FLAGS.print_info_freq == 0:
-        #                 fetches['cost'] = cost_train
-        #                 fetches['learning_rate'] = learning_rate
-        #
-        #             if (step + 1) % FLAGS.summary_freq == 0:
-        #                 fetches['summary_op'] = sv.summary_op
-        #
-        #             result = sess.run(fetches, feed_dict=feed_dict)
-        #             state1 = (result['lstm1_final_state_c'], result['lstm1_final_state_h'])
-        #             state2 = (result['lstm2_final_state_c'], result['lstm2_final_state_h'])
-        #
-        #             if (step + 1) % FLAGS.print_info_freq == 0:
-        #                 rate = FLAGS.batch_size / (time.time() - start_time)
-        #                 print("epoch:{}\t, rate:{:.2f} sentences/sec".format(round, rate))
-        #                 print("global step:{}".format(result['global_step']))
-        #                 print("cost:{:.4f}".format(result['cost']))
-        #                 print("learning rate:{:.6f}".format(result['learning_rate']))
-        #                 print(state1[0])
-        #                 print()
-        #
-        #             if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
-        #                 print("save model")
-        #                 if not os.path.exists(FLAGS.save_model_dir):
-        #                     os.mkdir(FLAGS.save_model_dir)
-        #                 saver.save(sess, os.path.join(FLAGS.save_model_dir, 'model'), global_step=global_step)
-        #
-        #             if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
-        #                 print("validate model...")
-        #                 # 初始化lstm
-        #
-        #                 # print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
+        for round in range(FLAGS.max_max_epoch):
+
+            for file_index in range(len(train_files)): #遍历文件
+                data_list = translation_data_prepare.load_train_data(train_files[file_index])
+
+                for step in range(len(data_list)):
+                    current_data = data_list[step]
+                    start_time = time.time()
+                    fetches = {'train_op': train_op, 'global_step': global_step, 'inc_global_step': incr_global_step}
+                    # x_train, y_train, target, x_length, y_length, target_weight
+                    feed_dict = {
+                        x_train: current_data['x_list'], y_train: current_data['y_list'],
+                        target:current_data['target_list'], x_length: current_data['x_len_list'],
+                        y_length: current_data['y_len_list'], target_weight: current_data['target_weight']
+                    }
+
+                    if (step + 1) % FLAGS.print_info_freq == 0:
+                        fetches['cost'] = cost_train
+                        fetches['learning_rate'] = learning_rate
+
+                    if (step + 1) % FLAGS.summary_freq == 0:
+                        fetches['summary_op'] = sv.summary_op
+
+                    result = sess.run(fetches, feed_dict=feed_dict)
+
+                    if (step + 1) % FLAGS.print_info_freq == 0:
+                        rate = FLAGS.batch_size / (time.time() - start_time)
+                        print("epoch:{}\t, rate:{:.2f} sentences/sec".format(round, rate))
+                        print("global step:{}".format(result['global_step']))
+                        print("cost:{:.4f}".format(result['cost']))
+                        print("learning rate:{:.6f}".format(result['learning_rate']))
+                        print()
+
+                    if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
+                        print("save model")
+                        if not os.path.exists(FLAGS.save_model_dir):
+                            os.mkdir(FLAGS.save_model_dir)
+                        saver.save(sess, os.path.join(FLAGS.save_model_dir, 'model'), global_step=global_step)
+
+                    if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
+                        print("validate model...")
+                        # 初始化lstm
+
+                        # print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
 
         print('optimization finished!')
 

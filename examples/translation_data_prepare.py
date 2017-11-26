@@ -35,7 +35,88 @@ from myutil import pathutil
 
 
 # nltk.download('punkt') # in case exception 'Failed loading english.pickle with nltk.data.load' occurs
+##################################################################
+#                       辅助函数
+##################################################################
 
+def load_train_data(file_path, dump_example = False):
+    """
+    加载训练数据
+    :param file_path:
+    :dump_example 是否打印样本
+    :return:
+    """
+    print("load " + file_path)
+    data_list = []
+    with open(file_path, 'r') as reader:
+        line = reader.readline()
+        while line:
+            ids_dict = json.loads(line)
+            data_list.append(ids_dict)
+            line = reader.readline()
+    print('load {} records .'.format(len(data_list)))
+    if dump_example:
+        for i in range(3):
+            print(json.dumps(data_list[i]))
+    return data_list
+
+def batch_id_to_word(id_list_list, id_to_word_dict):
+    """
+    根据字典把id转化成word
+    :param id_list_list:
+    :param id_to_word_dict:
+    :return:
+    """
+    result = []
+    for id_list in id_list_list:
+        temp_result = [id_to_word_dict[id] for id in id_list]
+        result.append(temp_result)
+    return result
+
+
+def load_dict(dict_path):
+    """
+    加载字典
+    :param dict_path:
+    :return:
+    """
+    word_to_id = {}
+    id_to_word = {}
+    index = 0
+    print('start load dict from {}'.format(dict_path))
+    with open(dict_path, 'r') as reader:
+        word = reader.readline()
+        while word:
+            word = word.strip()
+            word_to_id[word] = index
+            id_to_word[index] = word
+            index += 1
+            word = reader.readline()
+
+    print('size of word_to_id:{}'.format(len(word_to_id)))
+    print('size of id_to_word:{}'.format(len(id_to_word)))
+    for i in range(10):
+        print('{}:{}'.format(i, id_to_word[i]))
+    return word_to_id, id_to_word
+
+# def load_source_target_id_corpus(file_path):
+#     """
+#     加载id表示的语料，每一行是{'source':xxx, 'target':ooo}
+#     :param file_path:
+#     :return:
+#     """
+#     string_pair_list = []
+#     with open(file_path, 'r') as reader:
+#         line = reader.readline()
+#         while line:
+#             string_pair = json.loads(line)
+#             string_pair_list.append(string_pair)
+#             line = reader.readline()
+#     return string_pair_list
+
+##################################################################
+#                       训练数据准备
+##################################################################
 def prepare_data(corpora_one, corpora_two, corpora_combine, dic_one_path, dic_two_path, corpora_combine_ID):
     """
     :param corpora_one:
@@ -138,47 +219,6 @@ def corpora_to_id(corpora_one, corpora_two, corpora_combine, dic_one_path, dic_t
 
             line = reader.readline()
 
-
-def load_dict(dict_path):
-    """
-    加载字典
-    :param dict_path:
-    :return:
-    """
-    word_to_id = {}
-    id_to_word = {}
-    index = 0
-    print('start load dict from {}'.format(dict_path))
-    with open(dict_path, 'r') as reader:
-        word = reader.readline()
-        while word:
-            word = word.strip()
-            word_to_id[word] = index
-            id_to_word[index] = word
-            index += 1
-            word = reader.readline()
-
-    print('size of word_to_id:{}'.format(len(word_to_id)))
-    print('size of id_to_word:{}'.format(len(id_to_word)))
-    for i in range(10):
-        print('{}:{}'.format(i, id_to_word[i]))
-    return word_to_id, id_to_word
-
-def load_source_target_id_corpus(file_path):
-    """
-    加载id表示的语料，每一行是{'source':xxx, 'target':ooo}
-    :param file_path:
-    :return:
-    """
-    string_pair_list = []
-    with open(file_path, 'r') as reader:
-        line = reader.readline()
-        while line:
-            string_pair = json.loads(line)
-            string_pair_list.append(string_pair)
-            line = reader.readline()
-    return string_pair_list
-
 def load_sub_files(file_dir):
     """
     获取训练文件子文件
@@ -194,25 +234,6 @@ def load_sub_files(file_dir):
             sub_files_rel.append(file_rel)
     return sub_files_obs, sub_files_rel
 
-def load_train_data(file_path):
-    """
-    加载训练数据
-    :param file_path:
-    :return:
-    """
-    print("load " + file_path)
-    data_list = []
-    with open(file_path, 'r') as reader:
-        line = reader.readline()
-        while line:
-            ids_dict = json.loads(line)
-            data_list.append(ids_dict)
-            line = reader.readline()
-    print('load {} records .'.format(len(data_list)))
-    for i in range(3):
-        print(json.dumps(data_list[i]))
-    return data_list
-
 def format_data(file_path, batch_size):
     """
     加载训练数据，整理成batch_size的形式
@@ -225,7 +246,7 @@ def format_data(file_path, batch_size):
     _GO = 1
     _EOS = 2
 
-    data_list = load_train_data(file_path)
+    data_list = load_train_data(file_path, True)
     data_batch = []
 
     batch_num = len(data_list) // batch_size
@@ -304,12 +325,6 @@ def format_files(input_dir, output_dir, batch_size, source_dict_path, target_dic
                     print([len(row) for row in data['target_weight']])
                     print("--------------------------------------------------------")
 
-def batch_id_to_word(id_list_list, id_to_word_dict):
-    result = []
-    for id_list in id_list_list:
-        temp_result = [id_to_word_dict[id] for id in id_list]
-        result.append(temp_result)
-    return result
 
 
 if __name__ == '__main__':
