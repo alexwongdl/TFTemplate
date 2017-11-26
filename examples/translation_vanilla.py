@@ -85,7 +85,8 @@ def rnn_model(x_input, y_input, target, x_length, y_length, target_weight, reuse
         loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(logits=[output], targets=[tf.reshape(target, [-1])], \
                                                                   weights=[tf.reshape(target_weight, [-1])], \
                                                                   name='sequence_loss_by_example')
-        cost = tf.reduce_sum(loss) / FLAGS.batch_size
+        # cost = tf.reduce_sum(loss) / FLAGS.batch_size
+        cost = tf.reduce_sum(loss) / tf.reduce_sum(tf.cast(y_length, dtype=tf.float32))
 
         return net, cost, encode_net, decode_net, loss, predict
 
@@ -101,7 +102,7 @@ def train_rnn(FLAGS):
     train_files = sub_files
     del train_files[15]
     print('len of sub_files:{}, len of valid_file:{}, len of train_files:{}'.format(len(sub_files), len(valid_file), len(train_files)))
-
+    valid_data_list = translation_data_prepare.load_train_data(valid_file)
 
     # 3.build graph：including loss function，learning rate decay，optimization operation
     x_train = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, None], name='x_train')
@@ -164,7 +165,8 @@ def train_rnn(FLAGS):
                 for step in range(len(data_list)):
                     current_data = data_list[step]
                     start_time = time.time()
-                    fetches = {'train_op': train_op, 'global_step': global_step, 'inc_global_step': incr_global_step}
+                    fetches = {'train_op': train_op, 'global_step': global_step,
+                               'inc_global_step': incr_global_step, 'encode_final_state':encode_net_train.final_state}
                     # x_train, y_train, target, x_length, y_length, target_weight
                     feed_dict = {
                         x_train: current_data['x_list'], y_train: current_data['y_list'],
@@ -187,6 +189,11 @@ def train_rnn(FLAGS):
                         print("global step:{}".format(result['global_step']))
                         print("cost:{:.4f}".format(result['cost']))
                         print("learning rate:{:.6f}".format(result['learning_rate']))
+                        encode_final_state = result['encode_final_state']
+                        print(encode_final_state[0].c)
+                        print(encode_final_state[0].h)
+                        print(encode_final_state[1].c)
+                        print(encode_final_state[1].h)
                         print()
 
                     if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
@@ -197,9 +204,21 @@ def train_rnn(FLAGS):
 
                     if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
                         print("validate model...")
-                        # 初始化lstm
-
-                        # print("valid cost:{:.5f} for {} sentences".format(valid_cost, total_num))
+                        valid_cost = 0.0
+                        fetches = {'cost_valid':cost_valid, 'predict_valid':predict}
+                        # net_valid, cost_valid, encode_net_valid, encode_net_valid, _, predict
+                        valid_num = 100
+                        for valid_index in range(valid_num):
+                            valid_data = valid_data_list[valid_index]
+                            feed_dict = {
+                                x_train: valid_data['x_list'], y_train: valid_data['y_list'],
+                                target:valid_data['target_list'], x_length: valid_data['x_len_list'],
+                                y_length: valid_data['y_len_list'], target_weight: valid_data['target_weight']
+                            }
+                            result_valid = sess.run(fetches, feed_dict=feed_dict)
+                            valid_cost += result_valid['cost_valid']
+                        valid_cost /= len(valid_data_list)
+                        print("average valid cost:{:.5f} one {} sentences".format(valid_cost, valid_num * FLAGS.batch_size))
 
         print('optimization finished!')
 
