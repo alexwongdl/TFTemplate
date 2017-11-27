@@ -20,7 +20,7 @@ python MainEntryNMT_vanilla.py \
     --max_grad_norm=5 \
     --keep_prob=0.8 \
     --vocab_size=40000 \
-    --vocab_dim=128 \
+    --vocab_dim=200 \
     --dict_one_path=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/fr_dict \
     --dict_two_path=/home/recsys/hzwangjian1/learntf/TFTemplate/data/translate/en_dict
 

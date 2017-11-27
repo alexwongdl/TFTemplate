@@ -188,7 +188,7 @@ def train_rnn(FLAGS):
                         fetches['summary_op'] = sv.summary_op  #  sv.summary_op = summary.merge_all()
 
                     result = sess.run(fetches, feed_dict=feed_dict)
-                    # TODO:test summary
+
                     if (step + 1) % FLAGS.summary_freq == 0:
                         sv.summary_computed(sess, result['summary_op'], global_step=result['global_step'])
 

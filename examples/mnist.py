@@ -113,6 +113,9 @@ def train_mnist(FLAGS):
 
             result = sess.run(fetches)
 
+            if (step + 1) % FLAGS.summary_freq == 0:
+                sv.summary_computed(sess, result['summary_op'], global_step=result['global_step'])
+
             if (step + 1) % FLAGS.print_info_freq == 0:
                 epoch = math.ceil(result['global_step'] * 1.0 / steps_per_epoch)
                 rate = FLAGS.batch_size / (time.time() - start_time)

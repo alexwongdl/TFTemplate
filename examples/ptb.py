@@ -170,6 +170,10 @@ def train_rnn(FLAGS):
                     fetches['summary_op'] = sv.summary_op
 
                 result = sess.run(fetches, feed_dict=feed_dict)
+
+                if (step + 1) % FLAGS.summary_freq == 0:
+                    sv.summary_computed(sess, result['summary_op'], global_step=result['global_step'])
+
                 state1 = (result['lstm1_final_state_c'], result['lstm1_final_state_h'])
                 state2 = (result['lstm2_final_state_c'], result['lstm2_final_state_h'])
 
