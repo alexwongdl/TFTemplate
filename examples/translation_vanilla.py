@@ -131,7 +131,7 @@ def train_rnn(FLAGS):
     # 4.summary
     tf.summary.scalar('cost', cost)
     tf.summary.scalar('learning_rate', learning_rate)
-    
+
 
     # 5.training、valid、save check point in loops
     saver = tf.train.Saver()
