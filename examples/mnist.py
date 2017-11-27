@@ -82,6 +82,8 @@ def train_mnist(FLAGS):
 
     # 4.summary
     input_images = tf.image.convert_image_dtype(x_input, dtype=tf.uint8, saturate=True)
+
+    #TODO: summary not works well, use traditional method
     with tf.name_scope("input_summary"):
         tf.summary.image("input_summary", input_images)
     tf.summary.scalar('cost', cost)

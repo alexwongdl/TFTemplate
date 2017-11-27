@@ -113,6 +113,7 @@ def train_rnn(FLAGS):
     init_op = tf.global_variables_initializer()
 
     # 4.summary
+    #TODO: summary not works well, use traditional method
     tf.summary.scalar('cost', cost)
     tf.summary.scalar('learning_rate', learning_rate)
 

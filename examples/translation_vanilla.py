@@ -23,6 +23,7 @@ dataset：
 """
 import time
 import os
+import json
 import tensorflow as tf
 import tensorlayer as tl
 from examples import translation_data_prepare
@@ -139,12 +140,11 @@ def train_rnn(FLAGS):
     tf.summary.scalar('cost', cost_train)
     tf.summary.scalar('learning_rate', learning_rate)
 
-
     # 5.training、valid、save check point in loops
     saver = tf.train.Saver()
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=0, saver=None)
+    sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=10, saver=None)
     with sv.managed_session(config=config) as sess:
         print('start optimization...')
         with sess.as_default():
@@ -165,6 +165,11 @@ def train_rnn(FLAGS):
 
                 for step in range(len(data_list)):
                     current_data = data_list[step]
+                    if max(current_data['y_len_list']) > 400:
+                        print(" max(current_data['y_len_list']) > 400")
+                        print(current_data['y_len_list'])
+                        continue
+
                     start_time = time.time()
                     fetches = {'train_op': train_op, 'global_step': global_step,
                                'inc_global_step': incr_global_step, 'encode_final_state':encode_net_train.final_state}
@@ -180,9 +185,12 @@ def train_rnn(FLAGS):
                         fetches['learning_rate'] = learning_rate
 
                     if (step + 1) % FLAGS.summary_freq == 0:
-                        fetches['summary_op'] = sv.summary_op
+                        fetches['summary_op'] = sv.summary_op  #  sv.summary_op = summary.merge_all()
 
                     result = sess.run(fetches, feed_dict=feed_dict)
+                    # TODO:test summary
+                    if (step + 1) % FLAGS.summary_freq == 0:
+                        sv.summary_computed(sess, result['summary_op'], global_step=result['global_step'])
 
                     if (step + 1) % FLAGS.print_info_freq == 0:
                         rate = FLAGS.batch_size / (time.time() - start_time)
