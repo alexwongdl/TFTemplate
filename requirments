@@ -1,0 +1,4 @@
+tensorflow==1.2.1
+tensorlayer==1.7.1
+nltk==3.2.5
+-e git+https://github.com/dmlc/xgboost@00eda28b3c6270f2434b09f4ea46fe9ee6c16c53#egg=xgboost&subdirectory=python-package

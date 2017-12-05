@@ -7,3 +7,5 @@ CTPN：detecting text in natural image with connectionist text proposal network
 EAST:An Efficient and Accurate Scene Text Detector, 2017
 """
 
+from tensorflow.contrib import slim
+slim.conv2d()
