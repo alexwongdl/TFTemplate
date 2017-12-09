@@ -94,4 +94,5 @@ if __name__ == '__main__':
     a = generate_anchors()
     print(time.time() - t)
     print(a)
+    print(a.shape[0])
 
