@@ -1,5 +1,6 @@
 import tensorlayer as tl
 import nltk
+import numpy as np
 # nltk.download('punkt')
 
 def file_space(token_list):
@@ -25,6 +26,11 @@ def test_mnist():
     # print(y_test.ndim)
     # print(y_test[1:10])
 
+def test_numpy():
+    a = np.round(3.4)
+    print(a * 3)
+
 if __name__ == '__main__':
     # test_mnist()
-    test_nltk()
+    # test_nltk()
+    test_numpy()
