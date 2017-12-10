@@ -7,13 +7,15 @@ import pickle
 import xml.etree.ElementTree as ET
 import numpy as np
 from scipy.sparse import csr_matrix
+from PIL import Image
 
 from class_info import voc_classes, voc_classes_num, voc_class_to_ind
 
-def load_image_annotations(annotations_root_path, image_list, pickle_save_path):
+def load_image_annotations(annotations_root_path, image_root_path, image_list, pickle_save_path):
     """
     load roi info from pickle file or xml files
     :param annotations_root_path:
+    :param image_root_path:
     :param image_list:
     :param pickle_save_path:
     :return:
@@ -27,7 +29,11 @@ def load_image_annotations(annotations_root_path, image_list, pickle_save_path):
     print('load roi info from xml files.')
     for image_name in image_list:
         xml_path = os.path.join(annotations_root_path, image_name + '.xml')
-        annotations_list.append(load_pascal_annotation(xml_path, image_name + '.jpg'))
+        xml_feature = load_pascal_annotation(xml_path, image_name + '.jpg')
+        image_path = os.path.join(image_root_path, image_name + '.jpg')
+        img_feature = get_image_feature(image_path)
+        xml_feature.update(img_feature)
+        annotations_list.append(xml_feature)
 
     print('save roi info in pickle file.')
     pickle.dump(annotations_list, open(pickle_save_path,'wb'))
@@ -47,6 +53,16 @@ def get_image_list(file_path):
             line = reader.readline()
 
     return image_list
+
+def get_image_feature(image_path):
+    """
+    get image width, height
+    :param image_path:
+    :return:
+    """
+    img = Image.open(image_path)
+    (width, height) = img.size
+    return {'image_width':width, 'image_height':height, 'image_path':image_path}
 
 
 def load_pascal_annotation(filename, image_name):
@@ -95,6 +111,10 @@ def load_pascal_annotation(filename, image_name):
 
     overlaps = csr_matrix(overlaps)
 
+    # overlaps_arr = overlaps.toarray()
+    # print(overlaps_arr.max(axis=1))
+    # print(overlaps_arr.argmax(axis=1))
+
     return {'boxes': boxes,
             'gt_classes': gt_classes,
             'gt_ishard': ishards,
@@ -113,6 +133,6 @@ if __name__ == '__main__':
     print('len of image_list:{}'.format(len(image_list)))
     print(image_list[0:10])
 
-    roi_info = load_image_annotations('E://data/VOCdevkit/VOC2007/Annotations/', image_list, 'E://data/voc_roi_info.pkl')
+    roi_info = load_image_annotations('E://data/VOCdevkit/VOC2007/Annotations/', 'E://data/VOCdevkit/VOC2007/JPEGImages',image_list, 'E://data/voc_roi_info.pkl')
     print('len of roi_info:{}'.format(len(roi_info)))
     print(roi_info[0:5])
