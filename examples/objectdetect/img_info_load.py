@@ -10,6 +10,7 @@ from scipy.sparse import csr_matrix
 from PIL import Image
 
 from class_info import voc_classes, voc_classes_num, voc_class_to_ind
+from multiprocessing import Pool
 
 def load_image_annotations(annotations_root_path, image_root_path, image_list, pickle_save_path):
     """
@@ -123,6 +124,39 @@ def load_pascal_annotation(filename, image_name):
             'seg_areas': seg_areas,
             'xml_path':filename,
             'image_name': image_name}
+
+def generate_train_pathes(roi_info_list):
+    """
+    生成训练数据，每张图片随机选取256个anchors，正anchor和负anchors的占比接近于1:1，如果图像中少于128个正anchors，就用负样本来填充。
+    考察训练集中的每张图像：
+    a. 对每个标定的真值候选区域，与其重叠比例最大的anchor记为前景样本
+    b. 对a)剩余的anchor，如果其与某个标定重叠比例大于0.7，记为前景样本；如果其与任意一个标定的重叠比例都小于0.3，记为背景样本
+    c. 对a),b)剩余的anchor，弃去不用。
+    d. 跨越图像边界的anchor弃去不用
+    :param roi_info_list:
+    :return:
+    """
+    pool = Pool(4)
+    train_info = pool.map(process_one_image_roi, roi_info_list)
+    return train_info
+
+def process_one_image_roi(annotation_feature):
+    """
+    在一张图片中随机选取ROI区域
+    :param annotation_feature:
+    {'image_width':width, 'image_height':height, 'image_path':image_path
+            'boxes': boxes,             array([[262, 210, 323, 338],[164, 263, 252, 371],[4, 243,  66, 373],[240, 193, 294, 298],[276, 185, 311, 219]], dtype=uint16)
+            'gt_classes': gt_classes,   array([9, 9, 9, 9, 9])}
+            'gt_ishard': ishards,       'gt_ishard': array([0, 0, 1, 0, 1])
+            'gt_overlaps': overlaps,   <kx21 sparse matrix of type '<class 'numpy.float32'>'
+            'flipped': False,
+            'seg_areas': seg_areas,    array([ 7998.,  9701.,  8253.,  5830.,  1260.], dtype=float32)
+            'xml_path':filename,
+            'image_name': image_name}
+    :return:
+    """
+    # 随机生成
+
 
 
 if __name__ == '__main__':
