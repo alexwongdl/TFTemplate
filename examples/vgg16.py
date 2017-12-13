@@ -95,10 +95,10 @@ tl.layers.initialize_global_variables(sess)
 network.print_params()
 network.print_layers()
 
-if not os.path.isfile("vgg16_weights.npz"):
+if not os.path.isfile("E://data/vgg16_weights.npz"):
     print("Please download vgg16_weights.npz from : http://www.cs.toronto.edu/~frossard/post/vgg16/")
     exit()
-npz = np.load('vgg16_weights.npz')
+npz = np.load('E://data/vgg16_weights.npz')
 
 params = []
 for val in sorted( npz.items() ):
@@ -107,7 +107,7 @@ for val in sorted( npz.items() ):
 
 tl.files.assign_params(sess, params, network)
 
-img1 = imread('data/laska.png', mode='RGB') # test data in github
+img1 = imread('E://data/laska.png', mode='RGB') # test data in github
 img1 = imresize(img1, (224, 224))
 
 start_time = time.time()
