@@ -140,10 +140,11 @@ def generate_train_pathes(roi_info_list):
     train_info = pool.map(process_one_image_roi, roi_info_list)
     return train_info
 
-def process_one_image_roi(annotation_feature):
+def process_one_image_roi(annotation_feature, pool_layer=4):
     """
     在一张图片中随机选取ROI区域
     :param annotation_feature:
+    :param pool_layer: VGG16中输入图像和feature map的比例为16:1， 4次pool
     {'image_width':width, 'image_height':height, 'image_path':image_path
             'boxes': boxes,             array([[262, 210, 323, 338],[164, 263, 252, 371],[4, 243,  66, 373],[240, 193, 294, 298],[276, 185, 311, 219]], dtype=uint16)
             'gt_classes': gt_classes,   array([9, 9, 9, 9, 9])}
@@ -156,10 +157,14 @@ def process_one_image_roi(annotation_feature):
     :return:
     """
     # 随机生成
+    print('generate train data...')
 
 
-
-if __name__ == '__main__':
+def run_generate_windows():
+    """
+    本地机器上生成训练语料
+    :return:
+    """
     info = load_pascal_annotation('E://data/VOCdevkit/VOC2007/Annotations/004696.xml','004696.jpg')
     print(info)
 
@@ -170,3 +175,7 @@ if __name__ == '__main__':
     roi_info = load_image_annotations('E://data/VOCdevkit/VOC2007/Annotations/', 'E://data/VOCdevkit/VOC2007/JPEGImages',image_list, 'E://data/voc_roi_info.pkl')
     print('len of roi_info:{}'.format(len(roi_info)))
     print(roi_info[0:5])
+
+if __name__ == '__main__':
+    print('img_info_load starts running...')
+    run_generate_windows()
