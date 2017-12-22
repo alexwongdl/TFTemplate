@@ -7,6 +7,7 @@ import pickle
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from PIL import Image
+import random
 
 
 def plot_voc_roi_info(voc_roi_info_path):
@@ -16,6 +17,7 @@ def plot_voc_roi_info(voc_roi_info_path):
     :return:
     """
     annotations_list = pickle.load(open(voc_roi_info_path, 'rb'))
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
     for item in annotations_list:
         image_path = item['image_path']
         gt_classes = item['gt_classes']
@@ -28,7 +30,8 @@ def plot_voc_roi_info(voc_roi_info_path):
         plt.imshow(img)
         currentAxis = plt.gca()
         for box in boxes:
-            rect = patches.Rectangle((box[0], box[1]), (box[2] - box[0]), (box[3] - box[1]), linewidth=1, edgecolor='r',
+            rect = patches.Rectangle((box[0], box[1]), (box[2] - box[0]), (box[3] - box[1]), linewidth=1,
+                                     edgecolor=colors[random.randint(0, len(colors)-1)],
                                      facecolor='none')
             currentAxis.add_patch(rect)
         plt.show()

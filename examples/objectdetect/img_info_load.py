@@ -13,6 +13,7 @@ from class_info import voc_classes_num, voc_class_to_ind
 from scipy.sparse import csr_matrix
 
 import generate_anchors
+import scale_convert
 
 anchors = generate_anchors.generate_anchors()
 anchors_ares = generate_anchors.cal_anchors_areas(anchors)
@@ -153,17 +154,6 @@ def generate_train_pathes(roi_info_list, thread_num = 4):
     return train_info
 
 
-def image_to_feature_map(length, pool_layer_num):
-    """
-    计算经过k层pool layer之后图片长度的变化
-    :param length: width or height of image
-    :param pool_layer_num: pool layer 层数，e.g.4
-    :return:
-    """
-    for i in range(pool_layer_num):
-        length = np.ceil(length / 2)
-    return length
-
 
 def process_one_image_roi(annotation_feature, pool_layer=4):
     """
@@ -188,8 +178,8 @@ def process_one_image_roi(annotation_feature, pool_layer=4):
     # TODO:
     pool_layer_num = 4
     base_size = 16
-    W = image_to_feature_map(annotation_feature['image_width'], pool_layer_num)
-    H = image_to_feature_map(annotation_feature['image_height'], pool_layer_num)
+    W = scale_convert.image_to_feature_map(annotation_feature['image_width'], pool_layer_num)
+    H = scale_convert.image_to_feature_map(annotation_feature['image_height'], pool_layer_num)
 
     for w in range(W):
         for h in range(H):
@@ -224,4 +214,4 @@ if __name__ == '__main__':
     run_generate_windows()
 
 
-    # print(image_to_feature_map(252, 4))  # should be 16
+    # print(scale_convert.image_to_feature_map(252, 4))  # should be 16
