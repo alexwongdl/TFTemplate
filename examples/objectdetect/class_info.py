@@ -12,3 +12,6 @@ voc_classes = ('__background__', # always index 0
 
 voc_classes_num = len(voc_classes)
 voc_class_to_ind = dict(zip(voc_classes, range(voc_classes_num)))
+
+if __name__ == '__main__':
+    print(voc_classes[7])

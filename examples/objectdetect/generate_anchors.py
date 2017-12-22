@@ -14,6 +14,17 @@ generate anchors with different ratios and scales corresponding to (0,0)
 
 import numpy as np
 
+def cal_anchors_areas(anchors):
+    """
+    计算anchors的面积
+    :param anchors:
+    :return:
+    """
+    areas = []
+    for anchor in anchors:
+        area = (anchor[2] - anchor[0]) *(anchor[3] - anchor[1])
+        areas.append(area)
+    return areas
 
 def generate_anchors(base_size=16, ratios=[0.5, 1, 2], scales=np.array([8, 16, 32])):
     """
@@ -95,4 +106,6 @@ if __name__ == '__main__':
     print(time.time() - t)
     print(a)
     print(a.shape[0])
+    anchors_area = cal_anchors_areas(a)
+    print(anchors_area)
 
