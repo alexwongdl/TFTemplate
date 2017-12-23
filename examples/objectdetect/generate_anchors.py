@@ -34,7 +34,8 @@ def generate_anchors(base_size=16, ratios=[0.5, 1, 2], scales=np.array([8, 16, 3
 
     base_anchor = np.array([1, 1, base_size, base_size]) - 1
     ratio_anchors = [_ratio_enum(base_anchor, ratio) for ratio in ratios]
-    print(ratio_anchors)
+    # print('ratio_anchors:')
+    # print(ratio_anchors)
     anchors = []
     for i  in range(len(ratio_anchors)):
         anchors .extend([_scale_enum(ratio_anchors[i], scale)for scale in scales])

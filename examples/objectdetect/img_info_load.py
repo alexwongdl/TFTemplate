@@ -6,6 +6,9 @@ import os
 import pickle
 import xml.etree.ElementTree as ET
 from multiprocessing import Pool
+import time
+import math
+import json
 
 import numpy as np
 from PIL import Image
@@ -15,10 +18,16 @@ from scipy.sparse import csr_matrix
 import generate_anchors
 import scale_convert
 
+# 生成anchors及其面积
 anchors = generate_anchors.generate_anchors()
-anchors_ares = generate_anchors.cal_anchors_areas(anchors)
-print(anchors)
-print(anchors_ares)
+anchors_areas = generate_anchors.cal_anchors_areas(anchors)
+
+
+# print('anchors:')
+# print(anchors)
+# print('anchors_areas:')
+# print(anchors_areas)
+
 
 def load_image_annotations(annotations_root_path, image_root_path, image_list, pickle_save_path):
     """
@@ -95,6 +104,7 @@ def load_pascal_annotation(filename, image_name):
     num_objs = len(objs)
 
     boxes = np.zeros((num_objs, 4), dtype=np.uint16)
+    boxes_center_rep = np.zeros((num_objs, 4), dtype=np.uint16)  # box 的中心点表示
     gt_classes = np.zeros((num_objs), dtype=np.int32)
     overlaps = np.zeros((num_objs, voc_classes_num), dtype=np.float32)
     # "Seg" area for pascal is just the box area
@@ -116,9 +126,14 @@ def load_pascal_annotation(filename, image_name):
 
         cls = voc_class_to_ind[obj.find('name').text.lower().strip()]
         boxes[ix, :] = [x1, y1, x2, y2]
+        box_width = x2 - x1
+        box_height = y2 - y1
+        box_cx = x1 + box_width / 2
+        box_cy = y1 + box_height / 2
+        boxes_center_rep[ix, :] = [box_cx, box_cy, box_width, box_height]
         gt_classes[ix] = cls
         overlaps[ix, cls] = 1.0
-        seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
+        seg_areas[ix] = (x2 - x1) * (y2 - y1)
 
     overlaps = csr_matrix(overlaps)
 
@@ -127,6 +142,7 @@ def load_pascal_annotation(filename, image_name):
     # print(overlaps_arr.argmax(axis=1))
 
     return {'boxes': boxes,
+            'boxes_center_rep': boxes_center_rep,
             'gt_classes': gt_classes,
             'gt_ishard': ishards,
             'gt_overlaps': overlaps,
@@ -136,7 +152,7 @@ def load_pascal_annotation(filename, image_name):
             'image_name': image_name}
 
 
-def generate_train_pathes(roi_info_list, thread_num = 4):
+def generate_train_pathes(roi_info_list, pickle_save_path, thread_num=4):
     """
     生成训练数据，每张图片随机选取256个anchors，正anchor和负anchors的占比接近于1:1，如果图像中少于128个正anchors，就用负样本来填充。
     考察训练集中的每张图像：
@@ -145,21 +161,31 @@ def generate_train_pathes(roi_info_list, thread_num = 4):
     c. 对a),b)剩余的anchor，弃去不用。
     d. 跨越图像边界的anchor弃去不用
     :param roi_info_list:
+    :param pickle_save_path:结果保存路径，pkl文件
     :return:
     """
+    if os.path.exists(pickle_save_path):
+        print('load train_data from pickle file')
+        train_info = pickle.load(open(pickle_save_path, 'rb'))
+        return train_info
+
     pool = Pool(thread_num)
     train_info = pool.map(process_one_image_roi, roi_info_list)
     pool.close()
     pool.join()
+    # return train_info
+    pickle.dump(train_info, open(pickle_save_path, 'wb'))
     return train_info
 
-
-
-def process_one_image_roi(annotation_feature, pool_layer=4):
+def process_one_image_roi(annotation_feature, pool_layer_num=4, base_size = 16, max_positive_num = 128, max_sample_num = 256):
     """
     在一张图片中随机选取ROI区域
     :param annotation_feature:
-    :param pool_layer: VGG16中输入图像和feature map的比例为16:1， 4次pool
+    :param pool_layer_num: VGG16中输入图像和feature map的比例为16:1， 4次pool
+    :param base_size: feature map 上移动一格对应的像素个数
+    :param thread_num：每张图片处理进程数
+    :param max_positive_num：每张图片最多的anchor正样本数
+    :param max_sample_num：每张图片最多的anchor样本数
     {'image_width':width, 'image_height':height,
             'image_path':image_path
             'boxes': boxes,             array([[262, 210, 323, 338],[164, 263, 252, 371],[4, 243,  66, 373],[240, 193, 294, 298],[276, 185, 311, 219]], dtype=uint16)
@@ -176,16 +202,132 @@ def process_one_image_roi(annotation_feature, pool_layer=4):
     # 随机生成
     print('generate train data...')
     # TODO:
-    pool_layer_num = 4
-    base_size = 16
+    # pool_layer_num = 4
+    # base_size = 16
+
     W = scale_convert.image_to_feature_map(annotation_feature['image_width'], pool_layer_num)
     H = scale_convert.image_to_feature_map(annotation_feature['image_height'], pool_layer_num)
+    annotation_feature['feature_map_W'] = W
+    annotation_feature['feature_map_H'] = H
 
+    # [W_ind, H_ind, k_ind], [n, 4] box回归, [n, 2] cls分类, [n, 4] anchor值 [cx,cy,w,h], [n, 4] anchor值 [x1,y1,x2,y2], [n, cls_num] object识别
+    positive_anchors = []  # 最多128
+    negative_anchors = []  # 最多positive_anchors的3倍，最多128
+
+    anchors_info_list = []
     for w in range(W):
         for h in range(H):
             delt_x = base_size * w
             delt_y = base_size * h
+            delta = np.array([[delt_x, delt_y, delt_x, delt_y]] * len(anchors))
+            current_anchors = np.add(anchors, delta)
+            # 一个anchor最多对应一个object，为每一个anchor找到最大IoU的object，丢弃超出图像范围的anchors
+            temp_feature = {}
+            temp_feature.update(annotation_feature)
+            temp_feature['feature_map_w'] = w
+            temp_feature['feature_map_h'] = h
+            temp_feature['current_anchors'] = current_anchors
+            anchors_info_list.append(temp_feature)
+    print('image:{}, process {} anchors_set'.format(annotation_feature['image_path'], len(anchors_info_list)))
+    start_time = time.time()
+    # pool = Pool(thread_num)
+    # match_result = pool.map(match_anchors_objects, anchors_info_list)
+    # pool.close()
+    # pool.join()
+    match_result = []
+    for anchor_info in anchors_info_list:
+        match_result.append(match_anchors_objects(anchor_info))
+    end_time = time.time()
+    print('image {} process done, cost time:{}s'.format(annotation_feature['image_path'], end_time - start_time))
+    for matches in match_result:
+        if len(matches) <= 0:
+            continue
+        for sub_matches in matches:
+            if sub_matches['label'] == 1:
+                positive_anchors.append(sub_matches)
+            else:
+                negative_anchors.append(sub_matches)
 
+    # print(positive_anchors)
+    ## 正负样本数量控制
+    # max_positive_num = 128
+    # max_sample_num = 256
+    positive_num = min(len(positive_anchors), max_positive_num)
+    negative_num = min(len(negative_anchors), max_sample_num - max_positive_num, positive_num * 3)
+
+    if positive_num < len(positive_anchors):
+        ind = np.random.permutation(positive_num)
+        positive_anchors = [positive_anchors[i] for i in ind]
+
+    if negative_num < len(negative_anchors):
+        ind = np.random.permutation(negative_num)
+        negative_anchors = [negative_anchors[i] for i in ind]
+
+    print('image:{}\tsize of positive_anchors:{}\t size of negative_anchors:{}'.
+          format(annotation_feature['image_path'], len(positive_anchors), len(negative_anchors)))
+    annotation_feature['positive_anchors'] = positive_anchors
+    annotation_feature['negative_anchors'] = negative_anchors
+    return annotation_feature
+
+def match_anchors_objects(anchors_objects_info):
+    """
+    anchors和objects之间做匹配
+    需要计算的内容：[W_ind, H_ind, k_ind], [n, 4] box回归, [n, 2] cls分类, [n, 4] anchors中心点表示法 [cx,cy,w,h],
+                    [n, 4] anchor值 [x1,y1,x2,y2], [n, cls_num] object识别, [n, 4] object_box, label:0/1指示是否包含boject, IoU
+    :param anchors_objects_info: 包含anchors信息和objects信息
+    :return:
+    """
+    current_anchors = anchors_objects_info['current_anchors']
+    image_width = anchors_objects_info['image_width']
+    image_height = anchors_objects_info['image_height']
+    boxes = anchors_objects_info['boxes']
+    boxes_center_rep = anchors_objects_info['boxes_center_rep']
+    gt_overlaps = anchors_objects_info['gt_overlaps'].toarray()
+    seg_areas = anchors_objects_info['seg_areas']  # object面积
+    w_ind = anchors_objects_info['feature_map_w']
+    h_ind = anchors_objects_info['feature_map_h']
+    negative_label = [0] * voc_classes_num
+    negative_label[0] = 1
+
+    match_result = []
+    for i in range(len(current_anchors)):
+        anchor = current_anchors[i]  # [left, top, right, bottom]
+        if anchor[0] < 0 or anchor[1] < 0 or anchor[2] > image_width or anchor[3] > image_height:
+            continue  # 忽略超过图片边界的anchors
+        # anchor 中心点表示法
+        anchor_width = anchor[2] - anchor[0]
+        anchor_height = anchor[3] - anchor[1]
+        cx = anchor[0] + anchor_width / 2
+        cy = anchor[1] + anchor_height / 2
+
+        anchor_area = anchors_areas[i]
+        max_object_ind = -1
+        max_IoU = -1
+        for k in range(len(boxes)):  # 遍历object
+            object_box = boxes[k]
+            object_area = seg_areas[k]
+            IoU = scale_convert.IoU(anchor, object_box, anchor_area, object_area)
+            if IoU > max_IoU:
+                max_object_ind = k
+                max_IoU = IoU
+
+        if max_IoU <= 0.3:  # 负样本
+            match_result.append({'fea_map_ind': [w_ind, h_ind, i], 'box_reg': [0, 0, 0, 0], 'cls': [1, 0],
+                                 'anchor_center_rep': [cx, cy, anchor_width, anchor_height], 'anchor': anchor,
+                                 'object_cls': negative_label, 'object_box': [0, 0, 0, 0],
+                                 'label': 0, 'IoU': 0})
+        elif max_IoU >= 0.5:  # 正样本
+            box_center_rep = boxes_center_rep[max_object_ind]
+            tx = (box_center_rep[0] - cx) / anchor_width
+            ty = (box_center_rep[1] - cy) / anchor_height
+            tw = math.log(box_center_rep[2] / anchor_width)
+            th = math.log(box_center_rep[3] / anchor_height)
+            match_result.append({'fea_map_ind': [w_ind, h_ind, i], 'box_reg': [tx, ty, tw, th], 'cls': [0, 1],
+                                 'anchor_center_rep': [cx, cy, anchor_width, anchor_height], 'anchor': anchor,
+                                 'object_cls': gt_overlaps[max_object_ind], 'object_box': boxes[max_object_ind],
+                                 'label': 1, 'IoU': max_IoU})
+    # print(match_result)
+    return match_result
 
 
 def run_generate_windows():
@@ -207,11 +349,33 @@ def run_generate_windows():
     print('---------------------')
     print(roi_info[0])
     print(roi_info[1])
+    # print('----------test generate train data-----------')
+    # for i in range(10):
+    #     annotation_feature = process_one_image_roi(roi_info[i], pool_layer_num=4)
+    #     print(annotation_feature)
+    # print('----------test generate train data done-----------')
 
+    print('prepare train data...')
+    train_info = generate_train_pathes(roi_info, 'E://data/voc_train_data.pkl', thread_num=4)
+    print(train_info[0])
+
+    count_total = 0
+    count_has_positive = 0
+    for train_sample in train_info:
+        count_total += 1
+        if len(train_sample['positive_anchors']) > 0 :
+            count_has_positive += 1
+    print('count_total:{},count_has_positive:{}'.format(count_total, count_has_positive))
 
 if __name__ == '__main__':
     print('img_info_load starts running...')
     run_generate_windows()
+
+    # [[1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3]]
+    # delta = np.array([[1, 3, 1, 3]] * len(anchors))
+    # print(delta)
+    # print(delta.shape)  # should be 9
+    # print(np.add(delta, delta))
 
 
     # print(scale_convert.image_to_feature_map(252, 4))  # should be 16
