@@ -16,7 +16,7 @@ def image_to_feature_map(length, pool_layer_num):
     """
     for i in range(pool_layer_num):
         length = np.ceil(length / 2)
-    return length
+    return int(length)
 
 
 def IoU(a, b, area_a, area_b):
@@ -32,9 +32,20 @@ def IoU(a, b, area_a, area_b):
     intersect_right = min(a[2], b[2])
     intersect_bottom = min(a[3], b[3])
 
-    intersect_area = (intersect_right - intersect_left) * (intersect_bottom - intersect_top)
-    return intersect_area / (area_a + area_b - intersect_area)
+    intersect_width = (intersect_right - intersect_left);
+    intersect_height =  (intersect_bottom - intersect_top)
+
+    if intersect_width <= 0 or intersect_height <= 0:  # no overlap
+        return 0
+
+    intersect_area =  intersect_width * intersect_height
+    IoU_value = intersect_area / (area_a + area_b - intersect_area)
+    if IoU_value > 1:
+        print("IoU error IoU > 1, IoU:{}, a:{}, b:{}, area_a:{}, area_b:{}".format(IoU_value, a, b, area_a, area_b))
+    return IoU_value
 
 
 if __name__ == '__main__':
     print(IoU([1, 1, 10, 9], [5, 6, 15, 14], 72, 80))  # 0.10948905109489052
+    print(IoU([184., 8., 311., 135], [4, 243, 66, 373], 16129, 8253))
+    print(IoU([252., 24., 435., 119.], [4, 243, 66, 373], 17385, 8060))

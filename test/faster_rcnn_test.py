@@ -3,6 +3,7 @@ Created by Alex Wang on 2017-12-18
 测试tensorflow 函数
 """
 import numpy as np
+import random
 import tensorflow as tf
 import tensorlayer as tl
 
@@ -100,6 +101,11 @@ def arr_inverse():
     b = a[::-1]
     print(b)
 
+def test_permutation():
+    ind = np.random.permutation(10)
+    a = [[1,10],[2,20],[3,30],[4,40],[5,50],[6,60],[7,70],[8,80],[9,90],[10,100]]
+    print([a[i] for i in ind])
+
 if __name__ == '__main__':
     print("test tensorflow functions...")
     # test_tensor_index()
@@ -108,3 +114,4 @@ if __name__ == '__main__':
     # test_pool()
     test_pool_np()
     arr_inverse()
+    test_permutation()
