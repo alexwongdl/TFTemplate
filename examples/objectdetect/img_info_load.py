@@ -1,7 +1,7 @@
 """
 Created by Alex Wang on 2017-12-09
 """
-
+import sys
 import os
 import pickle
 import xml.etree.ElementTree as ET
@@ -12,11 +12,18 @@ import json
 
 import numpy as np
 from PIL import Image
-from class_info import voc_classes_num, voc_class_to_ind
-from scipy.sparse import csr_matrix
 
-import generate_anchors
-import scale_convert
+from scipy.sparse import csr_matrix
+import tensorlayer as tl
+import random
+
+root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  ##当前目录的上一级
+sys.path.append(root_path)
+
+from examples.objectdetect.class_info import voc_classes_num, voc_class_to_ind
+from  examples.objectdetect import generate_anchors
+from examples.objectdetect import scale_convert
+from examples.objectdetect import img_aug
 
 # 生成anchors及其面积
 anchors = generate_anchors.generate_anchors()
@@ -29,7 +36,7 @@ anchors_areas = generate_anchors.cal_anchors_areas(anchors)
 # print(anchors_areas)
 
 
-def load_image_annotations(annotations_root_path, image_root_path, image_list, pickle_save_path):
+def load_image_annotations(annotations_root_path = None, image_root_path = None, image_list = None, pickle_save_path = None):
     """
     load roi info from pickle file or xml files
     :param annotations_root_path:
@@ -97,10 +104,10 @@ def load_pascal_annotation(filename, image_name):
     objs = tree.findall('object')
 
     # Exclude the samples labeled as difficult
-    # non_diff_objs = [obj for obj in objs if int(obj.find('difficult').text) == 0]
-    # if len(non_diff_objs) != len(objs):
-    #     print ('Removed {} difficult objects from {}'.format(len(objs) - len(non_diff_objs), os.path.basename(filename)))
-    # objs = non_diff_objs
+    non_diff_objs = [obj for obj in objs if int(obj.find('difficult').text) == 0]
+    if len(non_diff_objs) != len(objs):
+        print ('Removed {} difficult objects from {}'.format(len(objs) - len(non_diff_objs), os.path.basename(filename)))
+    objs = non_diff_objs
     num_objs = len(objs)
 
     boxes = np.zeros((num_objs, 4), dtype=np.uint16)
@@ -152,7 +159,7 @@ def load_pascal_annotation(filename, image_name):
             'image_name': image_name}
 
 
-def generate_train_pathes(roi_info_list, pickle_save_path, thread_num=4):
+def generate_train_pathes(roi_info_list = None, pickle_save_path = None, thread_num=4):
     """
     生成训练数据，每张图片随机选取256个anchors，正anchor和负anchors的占比接近于1:1，如果图像中少于128个正anchors，就用负样本来填充。
     考察训练集中的每张图像：
@@ -173,9 +180,19 @@ def generate_train_pathes(roi_info_list, pickle_save_path, thread_num=4):
     train_info = pool.map(process_one_image_roi, roi_info_list)
     pool.close()
     pool.join()
+
+    new_train_info = []  # 过滤掉正样本数为0的图片
+    count_total = 0
+    count_has_positive = 0
+    for train_sample in train_info:
+        count_total += 1
+        if len(train_sample['positive_anchors']) > 0 :
+            count_has_positive += 1
+            new_train_info.append(train_sample)
+    print('count_total:{},count_has_positive:{},size of new_train_info:{}'.format(count_total, count_has_positive, len(new_train_info)))
     # return train_info
-    pickle.dump(train_info, open(pickle_save_path, 'wb'))
-    return train_info
+    pickle.dump(new_train_info, open(pickle_save_path, 'wb'))
+    return new_train_info
 
 def process_one_image_roi(annotation_feature, pool_layer_num=4, base_size = 16, max_positive_num = 128, max_sample_num = 256):
     """
@@ -354,22 +371,61 @@ def run_generate_windows():
     #     annotation_feature = process_one_image_roi(roi_info[i], pool_layer_num=4)
     #     print(annotation_feature)
     # print('----------test generate train data done-----------')
+    aug_roi_info = img_aug.batch_image_augment('E://data/voc_roi_info.pkl', 'E://data/aug_voc_roi_info.pkl', 'E://data/VOC_data', repeat=5, thread_num=4)
 
     print('prepare train data...')
-    train_info = generate_train_pathes(roi_info, 'E://data/voc_train_data.pkl', thread_num=4)
+    train_info = generate_train_pathes(aug_roi_info[0:60], 'E://data/voc_train_data.pkl', thread_num=4)
+    print('----------------------------------------------')
     print(train_info[0])
 
-    count_total = 0
-    count_has_positive = 0
-    for train_sample in train_info:
-        count_total += 1
-        if len(train_sample['positive_anchors']) > 0 :
-            count_has_positive += 1
-    print('count_total:{},count_has_positive:{}'.format(count_total, count_has_positive))
+    # count_total = 0
+    # count_has_positive = 0
+    # for train_sample in train_info:
+    #     count_total += 1
+    #     if len(train_sample['positive_anchors']) > 0 :
+    #         count_has_positive += 1
+    # print('count_total:{},count_has_positive:{}'.format(count_total, count_has_positive))
+
+def run_generate_linux():
+    """
+    服务器上生成训练语料
+    :return:
+    """
+    data_root = '/data/hzwangjian1/TFTemplate'
+    VOC_root = os.path.join(data_root, 'VOCdevkit')
+    info = load_pascal_annotation(os.path.join(VOC_root, 'VOC2007/Annotations/004696.xml'), '004696.jpg')
+    print(info)
+
+    image_list = get_image_list(os.path.join(VOC_root, 'VOC2007/ImageSets/Main/trainval.txt'))
+    print('len of image_list:{}'.format(len(image_list)))
+    print(image_list[0:10])
+
+    roi_info = load_image_annotations(os.path.join(VOC_root, 'VOC2007/Annotations/'),
+                                      os.path.join(VOC_root, 'VOC2007/JPEGImages'), image_list,
+                                      os.path.join(data_root, 'voc_roi_info.pkl'))
+    print('len of roi_info:{}'.format(len(roi_info)))
+    print(roi_info[0:5])
+    print('---------------------')
+    print(roi_info[0])
+    print(roi_info[1])
+    # print('----------test generate train data-----------')
+    # for i in range(10):
+    #     annotation_feature = process_one_image_roi(roi_info[i], pool_layer_num=4)
+    #     print(annotation_feature)
+    # print('----------test generate train data done-----------')
+    aug_roi_info = img_aug.batch_image_augment(os.path.join(data_root, 'voc_roi_info.pkl'),
+                                               os.path.join(data_root, 'aug_voc_roi_info.pkl'),
+                                               os.path.join(data_root, 'VOC_data'), repeat=5, thread_num=10)
+
+    print('prepare train data...')
+    train_info = generate_train_pathes(aug_roi_info,  os.path.join(data_root, 'voc_train_data.pkl'), thread_num=10)
+    print('----------------------------------------------')
+    print(train_info[0])
 
 if __name__ == '__main__':
     print('img_info_load starts running...')
     run_generate_windows()
+    # run_generate_linux()
 
     # [[1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3], [1, 3, 1, 3]]
     # delta = np.array([[1, 3, 1, 3]] * len(anchors))

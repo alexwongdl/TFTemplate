@@ -4,3 +4,4 @@ myutil/__pycache__/
 tfutil/__pycache__/
 data/
 examples/__pycache__/
+examples/objectdetect/__pycache__/

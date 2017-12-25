@@ -6,6 +6,8 @@ import numpy as np
 import random
 import tensorflow as tf
 import tensorlayer as tl
+from examples.objectdetect import img_info_load
+from examples.objectdetect import class_info
 
 
 def test_tensor_index():
@@ -42,7 +44,24 @@ def test_tensor_reshape():
                             [[[3100, 3101, 3102, 3103], [3110, 3111, 3112, 3113]],
                              [[3200, 3201, 3202, 3203], [3210, 3211, 3212, 3213]],
                              [[3300, 3301, 3302, 3303], [3310, 3311, 3312, 3313]]]])
-    print(feature_map.shape)
+    # feature_map = np.array([[[[1100, 1101, 1102, 1103], [1110, 1111, 1112, 1113]],
+    #                          [[1210, 1211, 1212, 1213]],
+    #                          [[1300, 1301, 1302, 1303], [1310, 1311, 1312, 1313]]],
+    #
+    #                         [[[2100, 2101, 2102, 2103], [2110, 2111, 2112, 2113]],
+    #                          [[2200, 2201, 2202, 2203], [2210, 2211, 2212, 2213]],
+    #                          [[2300, 2301, 2302, 2303]]],
+    #
+    #                         [[[3100, 3101, 3102, 3103], [3110, 3111, 3112, 3113]],
+    #                          [[3200, 3201, 3202, 3203], [3210, 3211, 3212, 3213]],
+    #                          [[3300, 3301, 3302, 3303], [3310, 3311, 3312, 3313]]]])
+    # print(feature_map.shape)
+    # print(feature_map[0])
+    # print(feature_map[0].shape)
+    # print(feature_map[1])
+    # print(feature_map[1].shape)
+    # print(feature_map[2])
+    # print(feature_map[2].shape)
 
     result = tf.reshape(feature_map, [3, 3, 2, 2, 2])
     sess = tf.Session()
@@ -80,8 +99,9 @@ def test_pool():
     sess = tf.Session()
     outputs = sess.run([pool1.outputs, pool2.outputs, pool3.outputs, pool4.outputs])
     for item in outputs:
-        item_np  = np.array(item)
+        item_np = np.array(item)
         print(item_np.shape)
+
 
 def test_pool_np():
     """
@@ -93,17 +113,19 @@ def test_pool_np():
     """
     width = 252
     for i in range(4):
-        width = np.ceil(width/2)
+        width = np.ceil(width / 2)
     print(width)
 
+
 def arr_inverse():
-    a = [1,2,3,4]
+    a = [1, 2, 3, 4]
     b = a[::-1]
     print(b)
 
+
 def test_permutation():
     ind = np.random.permutation(10)
-    a = [[1,10],[2,20],[3,30],[4,40],[5,50],[6,60],[7,70],[8,80],[9,90],[10,100]]
+    a = [[1, 10], [2, 20], [3, 30], [4, 40], [5, 50], [6, 60], [7, 70], [8, 80], [9, 90], [10, 100]]
     print([a[i] for i in ind])
 
 if __name__ == '__main__':
@@ -112,6 +134,6 @@ if __name__ == '__main__':
     # test_tensor_reshape()
     # test_hstack()
     # test_pool()
-    test_pool_np()
-    arr_inverse()
-    test_permutation()
+    # test_pool_np()
+    # arr_inverse()
+    # test_permutation()
