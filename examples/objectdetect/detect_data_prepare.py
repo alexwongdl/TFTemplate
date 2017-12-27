@@ -389,6 +389,27 @@ def run_generate_windows():
 def run_generate_linux():
     """
     服务器上生成训练语料
+    {'image_name': '000005.jpg', 'xml_path': '/data/hzwangjian1/TFTemplate/VOCdevkit/VOC2007/Annotations/000005.xml',
+    'image_path': '/data/hzwangjian1/TFTemplate/VOC_data/000005_0.jpg',
+    'boxes_center_norm_rep': array([[ 0.3825 ,  0.7325 ,  0.1575 ,  0.36   ],
+       [ 0.6025 ,  0.85125,  0.2275 ,  0.2975 ],
+       [ 0.45   ,  0.6525 ,  0.1375 ,  0.295  ]]),
+        'gt_classes': array([9, 9, 9], dtype=int32), 'gt_overlaps': <3x21 sparse matrix of type '<class 'numpy.float32'>'
+	with 3 stored elements in Compressed Sparse Row format>,
+	'seg_areas': array([ 8928, 10710,  6608]),
+	'boxes': array([[122, 221, 184, 365],
+       [196, 281, 286, 400],
+       [152, 202, 208, 320]]),
+    'boxes_center_rep': array([[ 153. ,  293. ,   62. ,  144. ],
+       [ 241. ,  340.5,   90. ,  119. ],
+       [ 180. ,  261. ,   56. ,  118. ]]),
+    'image_width': 400, 'image_height': 400, 'feature_map_W': 25, 'feature_map_H': 25,
+    'positive_anchors': [{'fea_map_ind': [8, 17, 6], 'box_reg': [0.20114942528735633, 0.077142857142857138, -0.33877373360949214, -0.19497267434751345], 'cls': [0, 1],
+    'anchor_center_rep': [135.5, 279.5, 87.0, 175.0], 'anchor': array([  92.,  192.,  179.,  367.]),
+     'object_cls': array([ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  1.,  0.,  0.,  0., 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.], dtype=float32),
+     'object_box': array([122, 221, 184, 365]), 'label': 1, 'IoU': 0.51476952022577616}],
+    'negative_anchors': [{'fea_map_ind': [4, 7, 3], 'box_reg': [0, 0, 0, 0], 'cls': [1, 0], 'anchor_center_rep': [71.5, 119.5, 127.0, 127.0], 'anchor': array([   8.,   56.,  135.,  183.]),
+    'object_cls': [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'object_box': [0, 0, 0, 0], 'label': 0, 'IoU': 0}]}
     :return:
     """
     data_root = '/data/hzwangjian1/TFTemplate'
