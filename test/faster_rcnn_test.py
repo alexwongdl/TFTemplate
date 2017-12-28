@@ -6,8 +6,6 @@ import numpy as np
 import random
 import tensorflow as tf
 import tensorlayer as tl
-from examples.objectdetect import img_info_load
-from examples.objectdetect import class_info
 
 
 def test_tensor_index():
@@ -62,12 +60,24 @@ def test_tensor_reshape():
     # print(feature_map[1].shape)
     # print(feature_map[2])
     # print(feature_map[2].shape)
+    shape_one = tf.shape(feature_map)
+    shape_org = shape_one
+    # 调整tensor最后两维,tensorflow不支持replace
+    shape_one = tf.expand_dims(shape_one, 0)
+    shape_one = tf.slice(shape_one, [0, 0], [1, 3])
+    shape_one = tf.concat([shape_one, tf.convert_to_tensor([[2, 2]])], 1)
+    shape_one = tf.squeeze(shape_one)
+
 
     result = tf.reshape(feature_map, [3, 3, 2, 2, 2])
     sess = tf.Session()
-    result_val = np.array(sess.run([result]))
+    result_val, shape_value, shape_org_value = sess.run([result, shape_one, shape_org])
+    result_val = np.array(result_val)
     print(result_val[0])
     print(result_val[0].shape)
+    print(shape_value)
+    print(shape_org_value)
+
 
 
 def test_hstack():
@@ -128,12 +138,26 @@ def test_permutation():
     a = [[1, 10], [2, 20], [3, 30], [4, 40], [5, 50], [6, 60], [7, 70], [8, 80], [9, 90], [10, 100]]
     print([a[i] for i in ind])
 
+def test_list_concat():
+    index = 0
+    print([0] + [1,2,3])
+
+def test_argmax():
+    a = tf.convert_to_tensor([[0,1],[1,0],[0,1],[1,0]])
+    b = tf.argmax(a, axis=1)
+    sess = tf.Session()
+    b_value = sess.run([b])
+    print(b_value)
+
+
 if __name__ == '__main__':
     print("test tensorflow functions...")
     # test_tensor_index()
-    # test_tensor_reshape()
+    test_tensor_reshape()
     # test_hstack()
     # test_pool()
     # test_pool_np()
     # arr_inverse()
     # test_permutation()
+    test_list_concat()
+    test_argmax()

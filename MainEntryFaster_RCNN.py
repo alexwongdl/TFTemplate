@@ -36,22 +36,22 @@ if __name__ == '__main__':
     # model log/save path
     parser.add_argument('--input_dir', default=None, help='input data path, pickle file store train data, see img_info_load.py generate_train_pathes()', type=str)
     parser.add_argument('--save_model_dir', default=None, help='model dir', type=str)
-    parser.add_argument('--save_model_freq', default=10000, help='save check point frequence', type=int)
+    parser.add_argument('--save_model_freq', default=1000, help='save check point frequence', type=int)
     parser.add_argument('--summary_dir', default=None, help='summary dir', type=str)
     parser.add_argument('--summary_freq', default=100, help='summary frequency', type=int)
     parser.add_argument('--print_info_freq', default=100, help='print training info frequency', type=int)
     # load checkpoint for initialization or inferencing if checkpoint is not None
     parser.add_argument('--checkpoint', default=None, help='pretrained model', type=str)
-    parser.add_argument('--valid_freq', default=10000, help='validate frequence', type=int)
+    parser.add_argument('--valid_freq', default=1000, help='validate frequence', type=int)
 
     """
     params for train faster-rcnn
     """
     parser.add_argument('--init_scale', default=0.04, help='the initial scale of the weights', type = float)
-    parser.add_argument('--max_grad_norm', default=5, help='the maximum permissible norm of the gradient', type=float)
+    # parser.add_argument('--max_grad_norm', default=5, help='the maximum permissible norm of the gradient', type=float)
     # parser.add_argument('--max_epoch', default=14, help='the number of epochs trained with the initial learning rate', type=int) -- decay step
-    parser.add_argument('--max_max_epoch', default=55, help='the total number of epochs for training', type=int)
-    parser.add_argument('--keep_prob', default=0.35, help='the probability of keeping weights in the dropout layer', type=float)
+    # parser.add_argument('--max_max_epoch', default=55, help='the total number of epochs for training', type=int)
+    parser.add_argument('--keep_prob', default=0.8, help='the probability of keeping weights in the dropout layer', type=float)
 
     FLAGS = parser.parse_args()
     arg_parse_print(FLAGS)
@@ -59,6 +59,6 @@ if __name__ == '__main__':
     if FLAGS.task == 'train_faster_rcnn':
         print('train faster rcnn model.')
         testdetector.train_faster_rcnn(FLAGS)
-    elif FLAGS.task == 'test_nmt':
-        print('test vanilla translation model.')
+    elif FLAGS.task == 'test_faster_rcnn':
+        print('test faster rcnn model.')
         # test_rnn(FLAGS)

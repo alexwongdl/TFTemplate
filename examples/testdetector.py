@@ -13,6 +13,7 @@ import os
 import json
 import tensorflow as tf
 import tensorlayer as tl
+from PIL import Image
 
 from examples.objectdetect import detect_data_prepare
 from myutil import printutil
@@ -29,7 +30,7 @@ def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=9, fea
     :param anchor_set_size:每一组anchors的大小
     :param fea_map_inds:[batch_size_ind, W_ind, H_ind, k_ind]
     :param box_reg:[n, 4]
-    :param cls:[n, 2]   background:[1,0], some object:[0,1]
+    :param cls:[n, 2]   background:[1,0], some object:[0,1]  box_class_batch
     :param object_cls:[n, cls_num]
     :param cal_loss：如果cal_loss为true，计算并返回损失函数
     :return:
@@ -113,15 +114,53 @@ def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=9, fea
         if not cal_loss: ##测试阶段，不需要计算损失函数
             return pred_cls, pred_box
 
-        #TODO:
-        # loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(logits=[output], targets=[tf.reshape(target, [-1])], \
-        #                                                           weights=[tf.reshape(target_weight, [-1])], \
-        #                                                           name='sequence_loss_by_example')
-        # cost = tf.reduce_sum(loss) / FLAGS.batch_size
-        # cost = tf.reduce_sum(loss) / tf.reduce_sum(tf.cast(y_length, dtype=tf.float32))
+        #TODO:损失函数
+        shape_cls = tf.shape(pred_cls)  #[image_ind, fea_map_w, fea_map_h, anchors * 2]
+        shape_cls = tf.expand_dims(shape_cls, 0)
+        shape_cls = tf.slice(shape_cls, [0, 0], [1, 3])
+        shape_cls = tf.concat([shape_cls, tf.convert_to_tensor([[anchor_set_size, 2]])], 1)
+        pred_cls_reshape = tf.reshape(pred_cls, shape_cls)
+        pred_cls_use = tf.gather_nd(pred_cls_reshape, fea_map_inds)
+
+        box_label = tf.argmax(cls)
+
+
+        loss_cls = tl.cost.cross_entropy(pred_cls_use, cls, name='class_cost_entropy')
+
+        # TODO: loss 添加 box reg loss和类别预测loss
+        loss = loss_cls
+        cost = tf.reduce_sum(loss) / FLAGS.batch_size
 
         return pred_cls, pred_box, loss, cost
 
+def batch_preprocess(train_data_batch):
+    """
+
+    :param train_data_batch:
+    :return:
+    """
+    x_train_batch = []
+    fea_map_inds_batch = []
+    box_reg_batch = []
+    box_class_batch = []
+    object_class_batch = []
+    fea_map_shape_batch = []
+
+    index = 0
+    for data in train_data_batch:
+        image = Image.open(data['image_path'])
+        x_train_batch.append(image)
+        fea_map_shape_batch.append([anchor['feature_map_W'], anchor['feature_map_H']])
+
+        for anchor in data['positive_anchors']:
+            fea_map_inds_batch.append([index] + anchor['fea_map_ind'])
+            box_reg_batch.append(anchor['box_reg'])
+            box_class_batch.append(anchor['cls'])
+            object_class_batch.append(anchor['object_cls'])
+
+    return tf.convert_to_tensor(x_train_batch), tf.convert_to_tensor(fea_map_inds_batch), \
+           tf.convert_to_tensor(box_reg_batch), tf.convert_to_tensor(box_class_batch), \
+           tf.convert_to_tensor(object_class_batch), tf.convert_to_tensor(fea_map_shape_batch)
 
 def train_faster_rcnn(FLAGS):
     print("start train faster rcnn model")
@@ -134,10 +173,10 @@ def train_faster_rcnn(FLAGS):
     valid_data_set = train_data_info[(total_data_num - valid_set_num):]  # 验证集
     print('size of train_data_set:{}, size of valid_data_set:{}'.format(len(train_data_set), len(valid_data_set)))
 
-    # TODO: train_data_info to batch
+    # train_data_info to batch
     train_input_queue = tf.train.slice_input_producer([train_data_set])
     train_batch = tf.train.shuffle_batch(train_input_queue, FLAGS.batch_size, capacity=32, min_after_dequeue=10, num_threads=12)
-    
+    x_train_batch, fea_map_inds_batch, box_reg_batch, box_class_batch, object_class_batch, fea_map_shape_batch = batch_preprocess(train_batch)
 
     # 3.build graph：including loss function，learning rate decay，optimization operation
     x_train = tf.placeholder(tf.float32, [FLAGS.batch_size, None, None, 3])
@@ -149,8 +188,11 @@ def train_faster_rcnn(FLAGS):
     #def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=9,
     #                       fea_map_inds=None, box_reg=None, cls=None, object_cls=None, cal_loss = True):
     pred_cls_train, pred_box_train, loss_train, cost_train = faster_rcnn_model(
-            x_train, reuse=False, is_training=True, FLAGS=FLAGS, fea_map_inds=fea_map_inds,
-            box_reg=box_reg, cls=box_class, object_cls=object_class, cal_loss=True)  # train
+            x_train_batch, reuse=False, is_training=True, FLAGS=FLAGS, fea_map_inds=fea_map_inds_batch,
+            box_reg=box_reg_batch, cls=box_class_batch, object_cls=object_class_batch, cal_loss=True)  # train
+    # pred_cls_train, pred_box_train, loss_train, cost_train = faster_rcnn_model(
+    #         x_train, reuse=False, is_training=True, FLAGS=FLAGS, fea_map_inds=fea_map_inds,
+    #         box_reg=box_reg, cls=box_class, object_cls=object_class, cal_loss=True)  # train
 
     pred_cls_pred, pred_box_pred, loss_pred, cost_pred = faster_rcnn_model(
             x_train, reuse=True, is_training=False, FLAGS=FLAGS, fea_map_inds=fea_map_inds,
@@ -200,82 +242,57 @@ def train_faster_rcnn(FLAGS):
         if FLAGS.checkpoint is not None:
             saver.restore(sess, FLAGS.checkpoint)
 
-        for round in range(FLAGS.max_max_epoch):
+        for step in range(FLAGS.max_iter):
 
-            for file_index in range(len(train_files)):  # 遍历训练样本
-                data_list = translation_data_prepare.load_train_data(train_files[file_index])
+            start_time = time.time()
+            fetches = {'train_op': train_op, 'global_step': global_step}
 
-                for step in range(len(data_list)):
-                    current_data = data_list[step]
-                    if max(current_data['y_len_list']) > 400:
-                        print(" max(current_data['y_len_list']) > 400")
-                        print(current_data['y_len_list'])
-                        continue
+            if (step + 1) % FLAGS.print_info_freq == 0:
+                fetches['cost'] = cost_train
+                fetches['learning_rate'] = learning_rate
 
-                    start_time = time.time()
-                    fetches = {'train_op': train_op, 'global_step': global_step,
-                               'inc_global_step': incr_global_step, 'encode_final_state': encode_net_train.final_state}
-                    # x_train, y_train, target, x_length, y_length, target_weight
-                    feed_dict = {
-                        x_train: current_data['x_list'], y_train: current_data['y_list'],
-                        target: current_data['target_list'], x_length: current_data['x_len_list'],
-                        y_length: current_data['y_len_list'], target_weight: current_data['target_weight']
-                    }
+            if (step + 1) % FLAGS.summary_freq == 0:
+                fetches['summary_op'] = sv.summary_op  # sv.summary_op = summary.merge_all()
 
-                    if (step + 1) % FLAGS.print_info_freq == 0:
-                        fetches['cost'] = cost_train
-                        fetches['learning_rate'] = learning_rate
+            result = sess.run(fetches)
 
-                    if (step + 1) % FLAGS.summary_freq == 0:
-                        fetches['summary_op'] = sv.summary_op  # sv.summary_op = summary.merge_all()
+            if (step + 1) % FLAGS.summary_freq == 0:
+                sv.summary_computed(sess, result['summary_op'], global_step=result['global_step'])
 
-                    result = sess.run(fetches, feed_dict=feed_dict)
+            if (step + 1) % FLAGS.print_info_freq == 0:
+                rate = FLAGS.batch_size / (time.time() - start_time)
+                print("epoch:{}\t, rate:{:.2f} sentences/sec".format(round, rate))
+                print("global step:{}".format(result['global_step']))
+                print("cost:{:.4f}".format(result['cost']))
+                print("learning rate:{:.6f}".format(result['learning_rate']))
 
-                    if (step + 1) % FLAGS.summary_freq == 0:
-                        sv.summary_computed(sess, result['summary_op'], global_step=result['global_step'])
+            if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
+                print("save model")
+                if not os.path.exists(FLAGS.save_model_dir):
+                    os.mkdir(FLAGS.save_model_dir)
+                saver.save(sess, os.path.join(FLAGS.save_model_dir, 'model'), global_step=global_step)
 
-                    if (step + 1) % FLAGS.print_info_freq == 0:
-                        rate = FLAGS.batch_size / (time.time() - start_time)
-                        print("epoch:{}\t, rate:{:.2f} sentences/sec".format(round, rate))
-                        print("global step:{}".format(result['global_step']))
-                        print("cost:{:.4f}".format(result['cost']))
-                        print("learning rate:{:.6f}".format(result['learning_rate']))
-                        encode_final_state = result['encode_final_state']
-
-                        if (step + 1) % 1000 == 0:
-                            print(encode_final_state[0].c)
-                            print(encode_final_state[0].h)
-                            print(encode_final_state[1].c)
-                            print(encode_final_state[1].h)
-                        print()
-
-                    if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
-                        print("save model")
-                        if not os.path.exists(FLAGS.save_model_dir):
-                            os.mkdir(FLAGS.save_model_dir)
-                        saver.save(sess, os.path.join(FLAGS.save_model_dir, 'model'), global_step=global_step)
-
-                    if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
-                        print("validate model...")  #TODO
-                        # valid_cost = 0.0
-                        # fetches = {'cost_valid': cost_valid, 'predict_valid': predict}
-                        # # net_valid, cost_valid, encode_net_valid, encode_net_valid, _, predict
-                        # valid_num = 100
-                        # for valid_index in range(valid_num):
-                        #     valid_data = valid_data_list[valid_index]
-                        #     feed_dict = {
-                        #         x_train: valid_data['x_list'], y_train: valid_data['y_list'],
-                        #         target: valid_data['target_list'], x_length: valid_data['x_len_list'],
-                        #         y_length: valid_data['y_len_list'], target_weight: valid_data['target_weight']
-                        #     }
-                        #     result_valid = sess.run(fetches, feed_dict=feed_dict)
-                        #     valid_cost += result_valid['cost_valid']
-                        # valid_cost /= valid_num
-                        # # print("average valid cost:{:.5f} on {} sentences".format(valid_cost, valid_num * FLAGS.batch_size))
-                        # printutil.mod_print("average valid cost:{:.5f} on {} sentences".format(valid_cost,
-                        #                                                                        valid_num * FLAGS.batch_size),
-                        #                     fg=printutil.ANSI_WHITE, bg=printutil.ANSI_GREEN_BACKGROUND,
-                        #                     mod=printutil.MOD_UNDERLINE)
+            if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
+                print("validate model...")  #TODO
+                # valid_cost = 0.0
+                # fetches = {'cost_valid': cost_valid, 'predict_valid': predict}
+                # # net_valid, cost_valid, encode_net_valid, encode_net_valid, _, predict
+                # valid_num = 100
+                # for valid_index in range(valid_num):
+                #     valid_data = valid_data_list[valid_index]
+                #     feed_dict = {
+                #         x_train: valid_data['x_list'], y_train: valid_data['y_list'],
+                #         target: valid_data['target_list'], x_length: valid_data['x_len_list'],
+                #         y_length: valid_data['y_len_list'], target_weight: valid_data['target_weight']
+                #     }
+                #     result_valid = sess.run(fetches, feed_dict=feed_dict)
+                #     valid_cost += result_valid['cost_valid']
+                # valid_cost /= valid_num
+                # # print("average valid cost:{:.5f} on {} sentences".format(valid_cost, valid_num * FLAGS.batch_size))
+                # printutil.mod_print("average valid cost:{:.5f} on {} sentences".format(valid_cost,
+                #                                                                        valid_num * FLAGS.batch_size),
+                #                     fg=printutil.ANSI_WHITE, bg=printutil.ANSI_GREEN_BACKGROUND,
+                #                     mod=printutil.MOD_UNDERLINE)
         print('optimization finished!')
 
 
