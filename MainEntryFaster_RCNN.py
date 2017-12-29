@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--decay_rate', default=0.9, help='decay rate', type=float)
 
     # model log/save path
+    parser.add_argument('--vgg16_path', default=None, help='vgg16 pretrained model, vgg16_weights.npz')
     parser.add_argument('--input_dir', default=None, help='input data path, pickle file store train data, see img_info_load.py generate_train_pathes()', type=str)
     parser.add_argument('--save_model_dir', default=None, help='model dir', type=str)
     parser.add_argument('--save_model_freq', default=1000, help='save check point frequence', type=int)

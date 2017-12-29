@@ -6,7 +6,8 @@ import numpy as np
 import random
 import tensorflow as tf
 import tensorlayer as tl
-
+import math
+import matplotlib.pyplot as plt
 
 def test_tensor_index():
     """
@@ -150,14 +151,36 @@ def test_argmax():
     print(b_value)
 
 
+def test_numpy_random_batch():
+    a = np.asarray(range(10))
+    print(a)
+    permutation = np.random.permutation(len(a))
+    print(a[permutation[:3]])
+
+def plot_smooth_L1():
+    x_value = np.arange(0, 2, 0.1)
+    x = tf.convert_to_tensor(np.arange(0, 2, 0.1))
+    y1 = 0.5 * x ** 2
+    y2 = tf.abs(x) - 0.5
+    # y_n = tf.cond(x < 1, lambda:0.5 * x ** 2, lambda:tf.abs(x) - 0.5)
+    y_n = tf.where(tf.less(x, tf.ones_like(x)), y1, y2)
+
+    sess = tf.Session()
+    y1_value, y2_value, yn_value = sess.run([y1, y2, y_n])
+
+    plt.plot(x_value, y1_value, 'r--', x_value, y2_value, 'bs', x_value, yn_value, 'g^')
+    plt.show()
+
 if __name__ == '__main__':
     print("test tensorflow functions...")
     # test_tensor_index()
-    test_tensor_reshape()
+    # test_tensor_reshape()
     # test_hstack()
     # test_pool()
     # test_pool_np()
     # arr_inverse()
     # test_permutation()
-    test_list_concat()
-    test_argmax()
+    # test_list_concat()
+    # test_argmax()
+    test_numpy_random_batch()
+    plot_smooth_L1()

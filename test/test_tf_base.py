@@ -26,8 +26,8 @@ def test_reuse_variables():
 
 def test_learning_rate():
     decay_step =1000
-    for i in range(1000000):
-        decayed_learning_rate = 1.0 * 0.995 ** (i / decay_step)
+    for i in range(200000):
+        decayed_learning_rate = 0.1 * 0.96 ** (i / decay_step)
         if i % 1000 == 0:
             print(decayed_learning_rate)
 
