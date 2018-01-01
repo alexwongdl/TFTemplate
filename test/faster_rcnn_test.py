@@ -171,6 +171,38 @@ def plot_smooth_L1():
     plt.plot(x_value, y1_value, 'r--', x_value, y2_value, 'bs', x_value, yn_value, 'g^')
     plt.show()
 
+def test_arr_part():
+    arr = [1,2,3,4]
+    arr_part = arr[0:3]
+    arr_new = arr_part + [5,6]
+    print(arr_new)
+
+def test_gather():
+    a = tf.convert_to_tensor([1,2,3,4,5])
+    a_shape = tf.shape(a)
+    # b = tf.gather(a, tf.convert_to_tensor(np.arange(0,4)))
+    b = a[0:3]
+    b_shape = tf.shape(b)
+    c = tf.concat([b, tf.convert_to_tensor([7,8])], axis=0)
+    sess = tf.Session()
+    b_value, b_shape_value, a_shape_value, c_value = sess.run([b, b_shape, a_shape, c])
+
+    print(b_value)
+    print(b_shape_value)
+    print(a_shape_value)
+    print(c_value)
+
+def decode_box():
+    a = tf.convert_to_tensor([[1,2,3,4],[5,6,7,8]])
+    b = a[0,1] * a[0,2]
+    sess=tf.Session()
+    b_value = sess.run([b])
+    print(b_value) # 6
+    c=tf.tile(a, [b,1])
+    c = tf.reshape(c, shape=tf.convert_to_tensor([6, 2, -1]))
+    c_value = sess.run([c])
+    print(c_value)
+
 if __name__ == '__main__':
     print("test tensorflow functions...")
     # test_tensor_index()
@@ -182,5 +214,8 @@ if __name__ == '__main__':
     # test_permutation()
     # test_list_concat()
     # test_argmax()
-    test_numpy_random_batch()
-    plot_smooth_L1()
+    # test_numpy_random_batch()
+    # plot_smooth_L1()
+    # test_arr_part()
+    # test_gather()
+    decode_box()

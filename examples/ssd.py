@@ -6,6 +6,7 @@ Fast-RCNN:https://github.com/CharlesShang/TFFRCNN
 CTPN：detecting text in natural image with connectionist text proposal network
     https://github.com/eragonruan/text-detection-ctpn
 EAST:An Efficient and Accurate Scene Text Detector, 2017
+SSD：Single Shot MultiBox Detector 2016
 """
 
 import time
@@ -21,7 +22,6 @@ import collections
 from examples.objectdetect import detect_data_prepare
 from myutil import printutil
 from examples.objectdetect.class_info import voc_classes, voc_classes_num
-
 
 def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=9, fea_map_inds=None, box_reg=None, cls=None,
                       object_cls=None, cal_loss=True):

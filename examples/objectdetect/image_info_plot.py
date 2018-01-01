@@ -3,27 +3,31 @@ Created by Alex Wang
 on 2017-12-21
 """
 import pickle
+import os
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from PIL import Image
 import random
+import numpy as np
 
 from examples.objectdetect import class_info
+from examples.objectdetect import ssd_data_prepare
 
-def plot_voc_roi_info(voc_roi_info_path):
+colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+def plot_voc_roi_info(image_root_path, voc_roi_info_path):
     """
     展示ROI信息
     :param voc_roi_info_path:  e.g. E://data/voc_roi_info.pkl
     :return:
     """
     annotations_list = pickle.load(open(voc_roi_info_path, 'rb'))
-    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
     # for item in annotations_list:
     while True:
         item_ind = random.randint(0, len(annotations_list))
         item = annotations_list[item_ind]
-        image_path = item['image_path']
+        # image_path = item['image_path']
+        image_path = os.path.join(image_root_path, os.path.basename(item['image_path']))
         gt_classes = item['gt_classes']
         boxes = item['boxes']
         img = Image.open(image_path)
@@ -47,8 +51,7 @@ def plot_voc_roi_info(voc_roi_info_path):
 def quit_figure(event):
     plt.close(event.canvas.figure)
 
-
 if __name__ == '__main__':
     print('plot image info...')
     # plot_voc_roi_info('E://data/voc_roi_info.pkl')
-    plot_voc_roi_info('E://data/aug_voc_roi_info.pkl')
+    plot_voc_roi_info('E://data/VOC_data','E://data/aug_voc_roi_info.pkl')

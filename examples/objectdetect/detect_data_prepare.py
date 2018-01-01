@@ -333,7 +333,7 @@ def match_anchors_objects(anchors_objects_info):
                                  'anchor_center_rep': [cx, cy, anchor_width, anchor_height], 'anchor': anchor,
                                  'object_cls': negative_label, 'object_box': [0, 0, 0, 0],
                                  'label': 0, 'IoU': 0})
-        elif max_IoU >= 0.5:  # 正样本
+        elif max_IoU >= 0.7:  # 正样本
             box_center_rep = boxes_center_rep[max_object_ind]
             tx = (box_center_rep[0] - cx) / anchor_width
             ty = (box_center_rep[1] - cy) / anchor_height

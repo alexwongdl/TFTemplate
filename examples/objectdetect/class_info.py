@@ -15,3 +15,4 @@ voc_class_to_ind = dict(zip(voc_classes, range(voc_classes_num)))
 
 if __name__ == '__main__':
     print(voc_classes[7])
+    print(voc_classes[18])

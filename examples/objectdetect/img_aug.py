@@ -11,7 +11,7 @@ import scipy
 from scipy.sparse import csr_matrix
 import pickle
 
-from examples.objectdetect import img_info_load
+from examples.objectdetect import detect_data_prepare
 from examples.objectdetect import class_info
 from multiprocessing import Pool
 
@@ -170,12 +170,13 @@ def _data_aug_fn(roi_info):
     return new_roi_info
 
 
-def batch_image_augment(roi_info_path = None, save_path = None, image_save_dir = None, repeat=5, thread_num=4):
+def batch_image_augment(roi_info_path = None, save_path = None, image_save_dir = None, repeat=5, thread_num=4, img_size= [512, 512]):
     """
     :param roi_info_path: voc_roi_info.pkl
     :param save_path: 保存路径
     :param image_save_dir:新图片保存地址
     :param repeat: 每张图片生成的增强图片个数
+    :param img_size:输出图像大小
     :return:
     """
     if os.path.exists(save_path):
@@ -183,9 +184,8 @@ def batch_image_augment(roi_info_path = None, save_path = None, image_save_dir =
         aug_roi_info_list = pickle.load(open(save_path, 'rb'))
         return aug_roi_info_list
 
-    im_size = [400, 400]  # 输出图的大小
     jitter = 0.2
-    roi_info_list = img_info_load.load_image_annotations(pickle_save_path=roi_info_path)
+    roi_info_list = detect_data_prepare.load_image_annotations(pickle_save_path=roi_info_path)
     new_roi_info_list = []
     for roi_info in roi_info_list:
         image_name = roi_info['image_name']
@@ -197,7 +197,7 @@ def batch_image_augment(roi_info_path = None, save_path = None, image_save_dir =
             new_image_name = '{}_{}.{}'.format(sub_strs[0], i, sub_strs[1])
             new_obj['aug_image_path'] = os.path.join(image_save_dir, new_image_name)
             new_obj['jitter'] = 0.2
-            new_obj['output_im_size'] = [400, 400]
+            new_obj['output_im_size'] = img_size
             new_roi_info_list.append(new_obj)
 
     pool = Pool(thread_num)
@@ -213,7 +213,7 @@ def test_tl_image_aug():
     tl 目标检测图像预处理测试
     :return:
     """
-    roi_info = img_info_load.load_image_annotations(pickle_save_path='E://data/voc_roi_info.pkl')
+    roi_info = detect_data_prepare.load_image_annotations(pickle_save_path='E://data/voc_roi_info.pkl')
     object0 = roi_info[70]
     print(object0)
 
