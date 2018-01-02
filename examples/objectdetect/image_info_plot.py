@@ -26,6 +26,7 @@ def plot_voc_roi_info(image_root_path, voc_roi_info_path):
     while True:
         item_ind = random.randint(0, len(annotations_list))
         item = annotations_list[item_ind]
+        print(item)
         # image_path = item['image_path']
         image_path = os.path.join(image_root_path, os.path.basename(item['image_path']))
         gt_classes = item['gt_classes']

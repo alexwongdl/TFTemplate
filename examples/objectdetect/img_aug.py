@@ -170,7 +170,8 @@ def _data_aug_fn(roi_info):
     return new_roi_info
 
 
-def batch_image_augment(roi_info_path = None, save_path = None, image_save_dir = None, repeat=5, thread_num=4, img_size= [512, 512]):
+def batch_image_augment(roi_info_path=None, save_path=None, image_save_dir=None, repeat=5, thread_num=4,
+                        img_size=[512, 512]):
     """
     :param roi_info_path: voc_roi_info.pkl
     :param save_path: 保存路径
@@ -184,6 +185,7 @@ def batch_image_augment(roi_info_path = None, save_path = None, image_save_dir =
         aug_roi_info_list = pickle.load(open(save_path, 'rb'))
         return aug_roi_info_list
 
+    os.mkdir(image_save_dir, exist_ok=True)
     jitter = 0.2
     roi_info_list = detect_data_prepare.load_image_annotations(pickle_save_path=roi_info_path)
     new_roi_info_list = []
@@ -207,6 +209,7 @@ def batch_image_augment(roi_info_path = None, save_path = None, image_save_dir =
 
     pickle.dump(aug_roi_info_list, open(save_path, 'wb'))
     return aug_roi_info_list
+
 
 def test_tl_image_aug():
     """
@@ -264,7 +267,8 @@ def test_tl_image_aug():
     print(new_object0)
     print(new_object0['gt_overlaps'].toarray())
     image_2 = tl.vis.read_image(new_object0['image_path'])
-    tl.vis.draw_boxes_and_labels_to_image(image_2, classes=new_object0['gt_classes'], coords=new_object0['boxes_center_norm_rep'], scores=[],
+    tl.vis.draw_boxes_and_labels_to_image(image_2, classes=new_object0['gt_classes'],
+                                          coords=new_object0['boxes_center_norm_rep'], scores=[],
                                           classes_list=class_info.voc_classes, bbox_center_to_rectangle=True,
                                           save_name=os.path.join(test_dir, 'aug_image_path_label.jpg'))
     # draw_boxes_and_labels_to_image(image, classes=[], coords=[],scores=[], classes_list=[],bbox_center_to_rectangle=True, save_name=None):
@@ -284,4 +288,5 @@ def test_tl_image_aug():
 if __name__ == '__main__':
     print("image_augment...")
     test_tl_image_aug()
-    batch_image_augment('E://data/voc_roi_info.pkl', 'E://data/aug_voc_roi_info.pkl', 'E://data/VOC_data', repeat=5, thread_num=4)
+    batch_image_augment('E://data/voc_roi_info.pkl', 'E://data/aug_voc_roi_info.pkl', 'E://data/VOC_data', repeat=5,
+                        thread_num=4)

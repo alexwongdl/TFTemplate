@@ -9,30 +9,87 @@ import pickle
 from multiprocessing import Pool
 import collections
 import time
+import math
 
 root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  ##当前目录的上一级
 sys.path.append(root_path)
 
-from examples.objectdetect.ssd_anchors import ssd_anchors, ssd_anchors_area, ssd_anchors_step, ssd_anchors_step_num, ssd_anchor_info
+from examples.objectdetect.ssd_anchors import ssd_anchors, ssd_anchors_area, ssd_anchors_step_size, ssd_anchors_step_num, ssd_anchor_info
 from examples.objectdetect import detect_data_prepare
 from examples.objectdetect import img_aug
+from examples.objectdetect.class_info import voc_classes,voc_classes_num
+from examples.objectdetect import scale_convert
 
+def match_anchors_objects(anchors_objects_info):
+    """
+    anchors和objects之间做匹配
+    需要计算的内容：[W_ind, H_ind, k_ind], [n, 4] box回归, [n, 2] cls分类, [n, 4] anchors中心点表示法 [cx,cy,w,h],
+                    [n, 4] anchor值 [x1,y1,x2,y2], [n, cls_num] object识别, [n, 4] object_box, label:0/1指示是否包含boject, IoU
+    :param anchors_objects_info: 包含anchors信息和objects信息
+    :return:
+    """
+    current_anchors = anchors_objects_info['current_anchors']
+    boxes = anchors_objects_info['boxes']
+    boxes_center_rep = anchors_objects_info['boxes_center_rep']
+    gt_overlaps = anchors_objects_info['gt_overlaps'].toarray()
+    seg_areas = anchors_objects_info['seg_areas']  # object面积
+    w_ind = anchors_objects_info['feature_map_w']
+    h_ind = anchors_objects_info['feature_map_h']
+    anchors_areas = anchors_objects_info['anchors_area']
+    negative_label = [0] * voc_classes_num
+    negative_label[0] = 1
 
+    match_result = []
+    for i in range(len(current_anchors)):
+        anchor = current_anchors[i]  # [left, top, right, bottom]
+        # anchor 中心点表示法
+        anchor_width = anchor[2] - anchor[0]
+        anchor_height = anchor[3] - anchor[1]
+        cx = anchor[0] + anchor_width / 2
+        cy = anchor[1] + anchor_height / 2
 
-def process_one_image_roi(annotation_feature, max_positive_num = 128, max_sample_num = 256):
+        anchor_area = anchors_areas[i]
+        max_object_ind = -1
+        max_IoU = -1
+        for k in range(len(boxes)):  # 遍历object
+            object_box = boxes[k]
+            object_area = seg_areas[k]
+            IoU = scale_convert.IoU(anchor, object_box, anchor_area, object_area)
+            if IoU > max_IoU:
+                max_object_ind = k
+                max_IoU = IoU
+
+        if max_IoU <= 0.3:  # 负样本
+            match_result.append({'fea_map_ind': [w_ind, h_ind, i], 'box_reg': [0, 0, 0, 0], 'cls': [1, 0],
+                                 'anchor_center_rep': [cx, cy, anchor_width, anchor_height], 'anchor': anchor,
+                                 'object_cls': negative_label, 'object_box': [0, 0, 0, 0],
+                                 'label': 0, 'IoU': 0})
+        elif max_IoU >= 0.7:  # 正样本
+            box_center_rep = boxes_center_rep[max_object_ind]
+            tx = (box_center_rep[0] - cx) / anchor_width
+            ty = (box_center_rep[1] - cy) / anchor_height
+            tw = math.log(box_center_rep[2] / anchor_width)
+            th = math.log(box_center_rep[3] / anchor_height)
+            match_result.append({'fea_map_ind': [w_ind, h_ind, i], 'box_reg': [tx, ty, tw, th], 'cls': [0, 1],
+                                 'anchor_center_rep': [cx, cy, anchor_width, anchor_height], 'anchor': anchor,
+                                 'object_cls': gt_overlaps[max_object_ind], 'object_box': boxes[max_object_ind],
+                                 'label': 1, 'IoU': max_IoU})
+    # print(match_result)
+    return match_result
+
+def process_one_image_roi(annotation_feature):
     """
     在一张图片中随机选取ROI区域
     :param annotation_feature:
-    :param max_positive_num：每张图片最多的anchor正样本数
-    :param max_sample_num：每张图片最多的anchor样本数
     {'image_width':width, 'image_height':height,
             'image_path':image_path
             'boxes': boxes,             array([[262, 210, 323, 338],[164, 263, 252, 371],[4, 243,  66, 373],[240, 193, 294, 298],[276, 185, 311, 219]], dtype=uint16)
                                         [left, top, right, bottom]
+            'boxes_center_rep'          array([[ 345.5,  294. ,  103. ,  166. ],[ 101. ,  191. ,   26. ,   74. ],[ 173.5,  280. ,  347. ,  194. ]])
+            'boxes_center_norm_rep'     tensorlayer图像增强表示方法 array([[ 0.8625 ,  0.735  ,  0.2575 ,  0.415  ],[ 0.2525 ,  0.4775 ,  0.065  ,  0.1875 ],[ 0.43375,  0.7    ,  0.8675 ,  0.485  ]])
             'gt_classes': gt_classes,   array([9, 9, 9, 9, 9])}
             'gt_ishard': ishards,       'gt_ishard': array([0, 0, 1, 0, 1])
             'gt_overlaps': overlaps,   <kx21 sparse matrix of type '<class 'numpy.float32'>'
-            'flipped': False,
             'seg_areas': seg_areas,    array([ 7998.,  9701.,  8253.,  5830.,  1260.], dtype=float32)
             'xml_path':filename,
             'image_name': image_name}
@@ -40,10 +97,40 @@ def process_one_image_roi(annotation_feature, max_positive_num = 128, max_sample
     """
     # 随机生成
     print('generate train data...')
+    start_time = time.time()
     # TODO:
-    
+    positive_anchors = []
+    negative_anchors = []
+    for anchor_layer_index in len(ssd_anchors):
+        anchors_info_list = []
+        # 为每一个anchor找最大IoU的object
+        anchors_temp = ssd_anchors[anchor_layer_index]
+        anchor_area_temp = ssd_anchors_area[anchor_layer_index]
+        anchor_step_size_temp = ssd_anchors_step_size[anchor_layer_index]
+        anchor_step_num_temp = ssd_anchors_step_num[anchor_layer_index]
+
+        # 计算这一层上的所有anchors
+        for w in range(anchor_step_num_temp):
+            for h in range(anchor_step_num_temp):
+                delt_x = anchor_step_size_temp * w
+                delt_y = anchor_step_size_temp * h
+                delta = np.array([[delt_x, delt_y, delt_x, delt_y]] * len(anchors_temp))
+
+                temp_feature = {}
+                temp_feature.update(annotation_feature)
+                temp_feature['feature_map_w'] = w
+                temp_feature['feature_map_h'] = h
+                temp_feature['current_anchors'] = np.add(anchors_temp, delta)
+                temp_feature['anchors_area'] = anchor_area_temp
+                anchors_info_list.append(temp_feature)
+
+        # 对每一个anchor计算和它最大IOU的object
+        # for anchor_info in anchors_info_list:
 
 
+
+    end_time = time.time()
+    print('image {} process done, cost time:{}s'.format(annotation_feature['image_path'], end_time - start_time))
     return annotation_feature
 
 def generate_train_pathes(roi_info_list = None, pickle_save_path = None, thread_num=4):
