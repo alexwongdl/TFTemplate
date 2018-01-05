@@ -65,8 +65,8 @@ def plot_train_data(image_root_path, train_data_info_path):
         # image_path = item['image_path']
         image_path = os.path.join(image_root_path, os.path.basename(item['image_path']))
         gt_classes = item['gt_classes']
-        # positive_anchors = item['positive_anchors']
-        positive_anchors = item['negative_anchors']
+        positive_anchors = item['positive_anchors']
+        # positive_anchors = item['negative_anchors']
         img = Image.open(image_path)
         cid = plt.gcf().canvas.mpl_connect('button_press_event', quit_figure)
         # cid = plt.gcf().canvas.mpl_connect('key_press_event', quit_figure)

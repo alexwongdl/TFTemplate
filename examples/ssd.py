@@ -19,7 +19,11 @@ import numpy as np
 from multiprocessing import Pool
 import collections
 
-from examples.objectdetect import detect_data_prepare
+from examples.objectdetect import ssd_data_prepare
+from examples.objectdetect.ssd_anchors import ssd_anchors, ssd_anchors_area, ssd_anchors_step_size, ssd_anchors_step_num, ssd_anchor_info
+# anchors 层数
+ssd_anchors_layers_num = len(ssd_anchors)
+
 from myutil import printutil
 from examples.objectdetect.class_info import voc_classes, voc_classes_num
 
@@ -175,22 +179,26 @@ def process_one_image(data):
     image = Image.open(data['image_path'])
     result['image'] = np.array(image)
 
-    fea_map_inds_batch = []
-    box_reg_batch = []
-    box_class_batch = []
-    object_class_batch = []
+    fea_map_inds_batch = [[]] * ssd_anchors_layers_num
+    box_reg_batch = [[]] * ssd_anchors_layers_num
+    box_class_batch = [[]] * ssd_anchors_layers_num
+    object_class_batch = [[]] * ssd_anchors_layers_num
 
-    for anchor in data['positive_anchors']:
-        fea_map_inds_batch.append([index] + anchor['fea_map_ind'])
-        box_reg_batch.append(anchor['box_reg'])
-        box_class_batch.append(anchor['cls'])
-        object_class_batch.append(anchor['object_cls'])
+    for i in range(ssd_anchors_layers_num):
+        positive_anchors_one_layer = data['positive_anchors'][i]
+        for anchor in positive_anchors_one_layer:
+            fea_map_inds_batch[i].append([index] + anchor['fea_map_ind'])
+            box_reg_batch[i].append(anchor['box_reg'])
+            box_class_batch[i].append(anchor['cls'])
+            object_class_batch[i].append(anchor['object_cls'])
 
-    for anchor in data['negative_anchors']:
-        fea_map_inds_batch.append([index] + anchor['fea_map_ind'])
-        box_reg_batch.append(anchor['box_reg'])
-        box_class_batch.append(anchor['cls'])
-        object_class_batch.append(anchor['object_cls'])
+    for i in range(ssd_anchors_layers_num):
+        negative_anchors_one_layer = data['negative_anchors'][i]
+        for anchor in negative_anchors_one_layer:
+            fea_map_inds_batch[i].append([index] + anchor['fea_map_ind'])
+            box_reg_batch[i].append(anchor['box_reg'])
+            box_class_batch[i].append(anchor['cls'])
+            object_class_batch[i].append(anchor['object_cls'])
 
     result['fea_map_inds'] = fea_map_inds_batch
     result['box_reg'] = box_reg_batch
@@ -205,12 +213,11 @@ def batch_preprocess(train_data_batch):
     :param train_data_batch:
     :return:
     """
-    x_train_batch = []
-    fea_map_inds_batch = []
-    box_reg_batch = []
-    box_class_batch = []
-    object_class_batch = []
-    fea_map_shape_batch = []
+    x_train_batch = [] #[FLAGS.batch_size, None, None, 3]
+    fea_map_inds_batch = [[]] * ssd_anchors_layers_num  #[ssd_anchors_layers_num, None, 4]
+    box_reg_batch = [[]] * ssd_anchors_layers_num  # [ssd_anchors_layers_num, None, 4]
+    box_class_batch = [[]] * ssd_anchors_layers_num  # [ssd_anchors_layers_num, None, 2]
+    object_class_batch = [[]] * ssd_anchors_layers_num  # [ssd_anchors_layers_num, None, voc_classes_num]
 
     index = 0
     for data in train_data_batch:
@@ -223,18 +230,19 @@ def batch_preprocess(train_data_batch):
 
     for data in result:
         x_train_batch.append(data['image'])
-        fea_map_inds_batch.extend(data['fea_map_inds'])
-        box_reg_batch.extend(data['box_reg'])
-        box_class_batch.extend(data['box_class'])
-        object_class_batch.extend(data['object_class'])
+        for i in range(ssd_anchors_layers_num):
+            fea_map_inds_batch[i].extend(data['fea_map_inds'][i])
+            box_reg_batch[i].extend(data['box_reg'][i])
+            box_class_batch[i].extend(data['box_class'][i])
+            object_class_batch[i].extend(data['object_class'][i])
 
-    return x_train_batch, fea_map_inds_batch, box_reg_batch, box_class_batch, object_class_batch, fea_map_shape_batch
+    return x_train_batch, fea_map_inds_batch, box_reg_batch, box_class_batch, object_class_batch
 
 
 def train_faster_rcnn(FLAGS):
     print("start train faster rcnn model")
     # 2.load data
-    train_data_info = detect_data_prepare.generate_train_pathes(pickle_save_path=FLAGS.input_dir)
+    train_data_info = ssd_data_prepare.generate_train_pathes(pickle_save_path=FLAGS.input_dir)
     train_data_info = np.asarray(train_data_info)
     total_data_num = len(train_data_info)
 
@@ -243,25 +251,14 @@ def train_faster_rcnn(FLAGS):
     valid_data_set = train_data_info[(total_data_num - valid_set_num):]  # 验证集
     print('size of train_data_set:{}, size of valid_data_set:{}'.format(len(train_data_set), len(valid_data_set)))
 
-    # train_data_info to batch
-    # train_input_queue = tf.train.slice_input_producer([train_data_set])
-    # train_batch = tf.train.shuffle_batch(train_input_queue, FLAGS.batch_size, capacity=32, min_after_dequeue=10, num_threads=12)
-    # print('batch preprocess...')
-    # x_train_batch, fea_map_inds_batch, box_reg_batch, box_class_batch, object_class_batch, fea_map_shape_batch = batch_preprocess(train_batch)
-
     # 3.build graph：including loss function，learning rate decay，optimization operation
     print('start build graph...')
     x_train = tf.placeholder(tf.float32, shape=[FLAGS.batch_size, None, None, 3], name='x_train')
-    fea_map_inds = tf.placeholder(tf.int32, shape=[None, 4], name='fea_map_inds')  # [Image_ind, W_ind, H_ind, k_ind]
-    box_reg = tf.placeholder(tf.float32, shape=[None, 4], name='box_reg')
-    box_class = tf.placeholder(tf.int16, shape=[None, 2], name='box_class')
-    object_class = tf.placeholder(tf.int16, shape=[None, voc_classes_num], name='object_class')
+    fea_map_inds = tf.placeholder(tf.int32, shape=[ssd_anchors_layers_num, None, 4], name='fea_map_inds')  # [Image_ind, W_ind, H_ind, k_ind]
+    box_reg = tf.placeholder(tf.float32, shape=[ssd_anchors_layers_num, None, 4], name='box_reg')
+    box_class = tf.placeholder(tf.int16, shape=[ssd_anchors_layers_num, None, 2], name='box_class')
+    object_class = tf.placeholder(tf.int16, shape=[ssd_anchors_layers_num, None, voc_classes_num], name='object_class')
 
-    # def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=9,
-    #                       fea_map_inds=None, box_reg=None, cls=None, object_cls=None, cal_loss = True):
-    # pred_cls_train, pred_box_train, loss_train, cost_train = faster_rcnn_model(
-    #         x_train_batch, reuse=False, is_training=True, FLAGS=FLAGS, fea_map_inds=fea_map_inds_batch,
-    #         box_reg=box_reg_batch, cls=box_class_batch, object_cls=object_class_batch, cal_loss=True)  # train
     pred_cls_train, pred_box_train, pred_obj_cls_train, loss_train, cost_train, loss_cls_train, loss_box_train, loss_obj_cls_train, conv5_3, obj_cls_label_train = faster_rcnn_model(
             x_input=x_train, reuse=False, is_training=True, FLAGS=FLAGS, fea_map_inds=fea_map_inds,
             box_reg=box_reg, cls=box_class, object_cls=object_class, cal_loss=True)  # train
@@ -291,11 +288,6 @@ def train_faster_rcnn(FLAGS):
     train_op = tf.train.AdamOptimizer(learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08, use_locking=False). \
         minimize(cost_train, var_list=train_params)
 
-    # train_vars = tf.trainable_variables()
-    # grads, _ = tf.clip_by_global_norm(tf.gradients(cost_train, train_vars),
-    #                                   name='clip_grads')
-    # train_op = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).apply_gradients(zip(grads, train_vars))
-
     init_op = tf.global_variables_initializer()
 
     # 4.summary
@@ -306,8 +298,7 @@ def train_faster_rcnn(FLAGS):
     saver = tf.train.Saver()
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    # sv = tf.train.Supervisor(logdir=FLAGS.summary_dir, save_summaries_secs=10, saver=None)
-    # with sv.managed_session(config=config) as sess:
+
     with tf.Session(config=config) as sess:
         summary_writer = tf.summary.FileWriter(FLAGS.summary_dir, sess.graph)
         print('start optimization...')
@@ -334,7 +325,7 @@ def train_faster_rcnn(FLAGS):
 
         for step in range(FLAGS.max_iter):
             permutation_ind = np.random.permutation(len(train_data_set))
-            x_train_batch, fea_map_inds_batch, box_reg_batch, box_class_batch, object_class_batch, fea_map_shape_batch = \
+            x_train_batch, fea_map_inds_batch, box_reg_batch, box_class_batch, object_class_batch = \
                 batch_preprocess(train_data_set[permutation_ind[:FLAGS.batch_size]])
             # x_train = tf.placeholder(tf.float32, [FLAGS.batch_size, None, None, 3])
             # fea_map_inds = tf.placeholder(tf.int16, [None, 4])  #[Image_ind, W_ind, H_ind, k_ind]
@@ -389,7 +380,7 @@ def train_faster_rcnn(FLAGS):
             if (result['global_step'] + 1) % FLAGS.valid_freq == 0 or step == 0:
                 print("validate model...")
                 permutation_ind = np.random.permutation(len(valid_data_set))
-                x_train_batch, fea_map_inds_batch, box_reg_batch, box_class_batch, object_class_batch, fea_map_shape_batch = \
+                x_train_batch, fea_map_inds_batch, box_reg_batch, box_class_batch, object_class_batch = \
                     batch_preprocess(train_data_set[permutation_ind[:FLAGS.batch_size]])
                 feed_dict = {x_train: x_train_batch, fea_map_inds: fea_map_inds_batch, box_reg: box_reg_batch,
                              box_class: box_class_batch, object_class: object_class_batch}
