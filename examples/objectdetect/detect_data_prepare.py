@@ -272,13 +272,14 @@ def process_one_image_roi(annotation_feature, pool_layer_num=4, base_size = 16, 
     positive_num = min(len(positive_anchors), max_positive_num)
     negative_num = min(len(negative_anchors), max_sample_num - max_positive_num, positive_num * 3)
 
+    # 选取部分结果
     if positive_num < len(positive_anchors):
-        ind = np.random.permutation(positive_num)
-        positive_anchors = [positive_anchors[i] for i in ind]
+        ind = np.random.permutation(len(positive_anchors))
+        positive_anchors = [positive_anchors[i] for i in ind[0:positive_num]]
 
     if negative_num < len(negative_anchors):
-        ind = np.random.permutation(negative_num)
-        negative_anchors = [negative_anchors[i] for i in ind]
+        ind = np.random.permutation(len(negative_anchors))
+        negative_anchors = [negative_anchors[i] for i in ind[0:negative_num]]
 
     print('image:{}\tsize of positive_anchors:{}\t size of negative_anchors:{}'.
           format(annotation_feature['image_path'], len(positive_anchors), len(negative_anchors)))

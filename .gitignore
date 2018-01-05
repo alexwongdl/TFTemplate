@@ -5,3 +5,4 @@ tfutil/__pycache__/
 data/
 examples/__pycache__/
 examples/objectdetect/__pycache__/
+examples/objectdetect/__pycache__/*
