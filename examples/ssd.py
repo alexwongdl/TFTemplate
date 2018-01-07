@@ -27,7 +27,7 @@ ssd_anchors_layers_num = len(ssd_anchors)
 from myutil import printutil
 from examples.objectdetect.class_info import voc_classes, voc_classes_num
 
-def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=9, fea_map_inds=None, box_reg=None, cls=None,
+def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_inds=None, box_reg=None, cls=None,
                       object_cls=None, cal_loss=True):
     """
     :param x_input: [batch, None, None, 3]
@@ -108,19 +108,74 @@ def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=9, fea
             # vgg16_net = network
 
         with tf.name_scope('rpn') as scope:
-            network = tl.layers.DropoutLayer(layer=conv5_3, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training,
-                                             name='dropout_conv5_3')
+            pred_cls = []
+            pred_box = []
+            pred_obj_cls = []
+            """ ssd_conv_0 """
+            network = tl.layers.MaxPool2d(conv5_3, filter_size=(2, 2), strides=(2, 2),
+                                          padding='SAME', name='pool5')
+            network = tl.layers.DropoutLayer(layer=network, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training,
+                                             name='dropout_ssd_conv_0')
+            network = tl.layers.Conv2d(network, n_filter=256, filter_size=(1, 1), strides=(1, 1), act=tf.nn.relu,
+                                       padding='SAME', name='ssd_conv0_1')
             network = tl.layers.Conv2d(network, n_filter=512, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
-                                       padding='SAME', name='rpn_512')
+                                       padding='SAME', name='ssd_conv0_2')
+            """ ssd_conv_1 """
+            network = tl.layers.MaxPool2d(network, filter_size=(2, 2), strides=(2, 2),
+                                          padding='SAME', name='pool6')
+            network = tl.layers.DropoutLayer(layer=network, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training,
+                                             name='dropout_ssd_conv_1')
+            network = tl.layers.Conv2d(network, n_filter=128, filter_size=(1, 1), strides=(1, 1), act=tf.nn.relu,
+                                       padding='SAME', name='ssd_conv1_1')
+            network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
+                                   padding='SAME', name='ssd_conv1_2')
+            """ ssd__pred_conv_1 """
+            #TODO:
 
-            pred_cls = tl.layers.Conv2d(network, n_filter=2 * anchor_set_size, filter_size=(1, 1), strides=(1, 1),
-                                        padding='SAME', name='cls_pred')  # [batch_size, W, H , 2k]
+            """ ssd_conv_2 """
+            network = tl.layers.MaxPool2d(network, filter_size=(2, 2), strides=(2, 2),
+                                          padding='SAME', name='pool7')
+            network = tl.layers.DropoutLayer(layer=network, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training,
+                                             name='dropout_ssd_conv_2')
+            network = tl.layers.Conv2d(network, n_filter=128, filter_size=(1, 1), strides=(1, 1), act=tf.nn.relu,
+                                   padding='SAME', name='ssd_conv2_1')
+            network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
+                                   padding='SAME', name='ssd_conv2_2')
+            """ ssd__pred_conv_2 """
+            #TODO:
 
-            pred_box = tl.layers.Conv2d(network, n_filter=4 * anchor_set_size, filter_size=(1, 1), strides=(1, 1),
-                                        padding='SAME', name='box_pred')  # [batch_size, W, H , 4k]
+            """ ssd_conv_3 """
+            network = tl.layers.MaxPool2d(network, filter_size=(2, 2), strides=(2, 2),
+                                          padding='SAME', name='pool8')
+            network = tl.layers.DropoutLayer(layer=network, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training,
+                                             name='dropout_ssd_conv_3')
+            network = tl.layers.Conv2d(network, n_filter=128, filter_size=(1, 1), strides=(1, 1), act=tf.nn.relu,
+                                       padding='SAME', name='ssd_conv3_1')
+            network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
+                                       padding='SAME', name='ssd_conv3_2')
+            """ ssd__pred_conv_3 """
+            #TODO:
 
-            pred_obj_cls = tl.layers.Conv2d(network, n_filter=voc_classes_num * anchor_set_size, filter_size=(1, 1),
-                                            strides=(1, 1), padding='SAME', name='obj_cls_pred')
+            """ ssd_conv_4 """
+            network = tl.layers.MaxPool2d(network, filter_size=(2, 2), strides=(2, 2),
+                                          padding='SAME', name='pool9')
+            network = tl.layers.DropoutLayer(layer=network, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training,
+                                             name='dropout_ssd_conv_4')
+            network = tl.layers.Conv2d(network, n_filter=128, filter_size=(1, 1), strides=(1, 1), act=tf.nn.relu,
+                                       padding='SAME', name='ssd_conv4_1')
+            network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
+                                       padding='SAME', name='ssd_conv4_2')
+            """ ssd__pred_conv_4 """
+            #TODO:
+
+            # pred_cls = tl.layers.Conv2d(network, n_filter=2 * anchor_set_size, filter_size=(1, 1), strides=(1, 1),
+            #                             padding='SAME', name='cls_pred')  # [batch_size, W, H , 2k]
+            #
+            # pred_box = tl.layers.Conv2d(network, n_filter=4 * anchor_set_size, filter_size=(1, 1), strides=(1, 1),
+            #                             padding='SAME', name='box_pred')  # [batch_size, W, H , 4k]
+            #
+            # pred_obj_cls = tl.layers.Conv2d(network, n_filter=voc_classes_num * anchor_set_size, filter_size=(1, 1),
+            #                                 strides=(1, 1), padding='SAME', name='obj_cls_pred')
 
         if not cal_loss:  ##测试阶段，不需要计算损失函数
             return pred_cls, pred_box, pred_obj_cls, conv5_3
