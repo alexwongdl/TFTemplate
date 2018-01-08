@@ -217,5 +217,5 @@ if __name__ == '__main__':
     # test_numpy_random_batch()
     # plot_smooth_L1()
     # test_arr_part()
-    # test_gather()
-    decode_box()
+    test_gather()
+    # decode_box()

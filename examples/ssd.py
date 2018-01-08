@@ -9,23 +9,35 @@ EAST:An Efficient and Accurate Scene Text Detector, 2017
 SSD：Single Shot MultiBox Detector 2016
 """
 
-import time
+import collections
 import os
-import json
+import time
+from multiprocessing import Pool
+
+import numpy as np
 import tensorflow as tf
 import tensorlayer as tl
 from PIL import Image
-import numpy as np
-from multiprocessing import Pool
-import collections
 
 from examples.objectdetect import ssd_data_prepare
-from examples.objectdetect.ssd_anchors import ssd_anchors, ssd_anchors_area, ssd_anchors_step_size, ssd_anchors_step_num, ssd_anchor_info
+from examples.objectdetect.ssd_anchors import ssd_anchors
+
 # anchors 层数
 ssd_anchors_layers_num = len(ssd_anchors)
 
-from myutil import printutil
 from examples.objectdetect.class_info import voc_classes, voc_classes_num
+
+
+def ssd_predict_layer(network, anchor_set_size, layer_num):
+    pred_cls = tl.layers.Conv2d(network, n_filter=2 * anchor_set_size, filter_size=(1, 1), strides=(1, 1),
+                                padding='SAME', name='cls_pred_' + layer_num)  # [batch_size, W, H , 2k]
+    pred_box = tl.layers.Conv2d(network, n_filter=4 * anchor_set_size, filter_size=(1, 1), strides=(1, 1),
+                                padding='SAME', name='box_pred_' + layer_num)  # [batch_size, W, H , 4k]
+    pred_obj_cls = tl.layers.Conv2d(network, n_filter=voc_classes_num * anchor_set_size, filter_size=(1, 1),
+                                    strides=(1, 1), padding='SAME', name='obj_cls_pred_' + layer_num)
+
+    return pred_cls, pred_box, pred_obj_cls
+
 
 def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_inds=None, box_reg=None, cls=None,
                       object_cls=None, cal_loss=True):
@@ -128,9 +140,12 @@ def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea
             network = tl.layers.Conv2d(network, n_filter=128, filter_size=(1, 1), strides=(1, 1), act=tf.nn.relu,
                                        padding='SAME', name='ssd_conv1_1')
             network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
-                                   padding='SAME', name='ssd_conv1_2')
+                                       padding='SAME', name='ssd_conv1_2')
             """ ssd__pred_conv_1 """
-            #TODO:
+            pred_cls_1, pred_box_1, pred_obj_cls_1 = ssd_predict_layer(network, anchor_set_size, 1)
+            pred_cls.append(pred_cls_1)
+            pred_box.append(pred_box_1)
+            pred_obj_cls.append(pred_obj_cls_1)
 
             """ ssd_conv_2 """
             network = tl.layers.MaxPool2d(network, filter_size=(2, 2), strides=(2, 2),
@@ -138,11 +153,14 @@ def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea
             network = tl.layers.DropoutLayer(layer=network, keep=FLAGS.keep_prob, is_fix=True, is_train=is_training,
                                              name='dropout_ssd_conv_2')
             network = tl.layers.Conv2d(network, n_filter=128, filter_size=(1, 1), strides=(1, 1), act=tf.nn.relu,
-                                   padding='SAME', name='ssd_conv2_1')
+                                       padding='SAME', name='ssd_conv2_1')
             network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
-                                   padding='SAME', name='ssd_conv2_2')
+                                       padding='SAME', name='ssd_conv2_2')
             """ ssd__pred_conv_2 """
-            #TODO:
+            pred_cls_2, pred_box_2, pred_obj_cls_2 = ssd_predict_layer(network, anchor_set_size, 2)
+            pred_cls.append(pred_cls_2)
+            pred_box.append(pred_box_2)
+            pred_obj_cls.append(pred_obj_cls_2)
 
             """ ssd_conv_3 """
             network = tl.layers.MaxPool2d(network, filter_size=(2, 2), strides=(2, 2),
@@ -154,7 +172,10 @@ def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea
             network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
                                        padding='SAME', name='ssd_conv3_2')
             """ ssd__pred_conv_3 """
-            #TODO:
+            pred_cls_3, pred_box_3, pred_obj_cls_3 = ssd_predict_layer(network, anchor_set_size, 3)
+            pred_cls.append(pred_cls_3)
+            pred_box.append(pred_box_3)
+            pred_obj_cls.append(pred_obj_cls_3)
 
             """ ssd_conv_4 """
             network = tl.layers.MaxPool2d(network, filter_size=(2, 2), strides=(2, 2),
@@ -166,7 +187,10 @@ def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea
             network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
                                        padding='SAME', name='ssd_conv4_2')
             """ ssd__pred_conv_4 """
-            #TODO:
+            pred_cls_4, pred_box_4, pred_obj_cls_4 = ssd_predict_layer(network, anchor_set_size, 4)
+            pred_cls.append(pred_cls_4)
+            pred_box.append(pred_box_4)
+            pred_obj_cls.append(pred_obj_cls_4)
 
             # pred_cls = tl.layers.Conv2d(network, n_filter=2 * anchor_set_size, filter_size=(1, 1), strides=(1, 1),
             #                             padding='SAME', name='cls_pred')  # [batch_size, W, H , 2k]
@@ -180,52 +204,64 @@ def faster_rcnn_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea
         if not cal_loss:  ##测试阶段，不需要计算损失函数
             return pred_cls, pred_box, pred_obj_cls, conv5_3
 
-        # 损失函数
-        shape_ind = tf.shape(pred_cls.outputs)  # [image_ind, fea_map_w, fea_map_h, anchors * 2]
-        shape_ind = tf.expand_dims(shape_ind, 0)
-        shape_ind = tf.slice(shape_ind, [0, 0], [1, 3])  # [image_ind, fea_map_w, fea_map_h]
+        """ 损失函数 """
+        loss_cls = []
+        loss_box = []
+        loss_obj_cls = []
+        obj_cls_label = []
+        assert ssd_anchors_layers_num == len(pred_cls)
+        for i in range(ssd_anchors_layers_num):
+            pred_cls_i = pred_cls[i]
+            pred_box_i = pred_box[i]
+            pred_obj_cls_i = pred_obj_cls[i]
 
-        # 1. cls reshape and calculate loss    可以用 gather + concat 代替，或者a[0:4] + concat
-        shape_cls = tf.concat([shape_ind, tf.convert_to_tensor([[anchor_set_size, 2]])], 1)
-        shape_cls = tf.squeeze(shape_cls)
-        pred_cls_reshape = tf.reshape(pred_cls.outputs, shape_cls)
-        pred_cls_use = tf.gather_nd(pred_cls_reshape, fea_map_inds)
+            shape_ind = tf.shape(pred_cls_i.outputs)  # [image_ind, fea_map_w, fea_map_h, anchors * 2]
 
-        box_label = tf.argmax(cls, axis=1)
-        loss_cls = tl.cost.cross_entropy(pred_cls_use, box_label, name='loss_cls')
-        loss_cls = tf.reduce_sum(loss_cls) / FLAGS.batch_size  # about 0.01
+            # 1. cls reshape and calculate loss [image_ind, fea_map_w, fea_map_h, anchors, 2]
+            shape_cls = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, 2])], axis=0)
+            pred_cls_reshape = tf.reshape(pred_cls_i.outputs, shape_cls)
+            pred_cls_use = tf.gather_nd(pred_cls_reshape, fea_map_inds[i])
 
-        # 2. box_reg reshape and calculate loss
-        shape_box = tf.concat([shape_ind, tf.convert_to_tensor([[anchor_set_size, 4]])], 1)
-        shape_box = tf.squeeze(shape_box)
-        pred_box_reshape = tf.reshape(pred_box.outputs, shape_box)
-        pred_box_use = tf.gather_nd(pred_box_reshape, fea_map_inds)
+            box_label = tf.argmax(cls[i], axis=1)
+            loss_cls_i = tl.cost.cross_entropy(pred_cls_use, box_label, name='loss_cls_' + i)
+            loss_cls_i = tf.reduce_sum(loss_cls_i) / FLAGS.batch_size  # about 0.01
+            loss_cls.append(loss_cls_i)
 
-        box_diff = tf.subtract(pred_box_use, box_reg)
-        box_diff_abs = tf.abs(box_diff)
-        y1 = 0.5 * box_diff_abs ** 2
-        y2 = box_diff_abs - 0.5
-        loss_box = tf.where(tf.less(box_diff_abs, tf.ones_like(box_diff_abs)), y1, y2, name='loss_box')
-        ## 负样本不计算box回归
-        loss_box = tf.where(tf.less(box_label, tf.ones_like(box_label)), tf.zeros_like(loss_box), loss_box, 'loss_box_1')
-        loss_box = tf.reduce_sum(loss_box) / FLAGS.batch_size  # about 3
+            # 2. box_reg reshape and calculate loss [image_ind, fea_map_w, fea_map_h, anchors, 4]
+            shape_box = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, 4])], axis=0)
+            pred_box_reshape = tf.reshape(pred_box_i.outputs, shape_box)
+            pred_box_use = tf.gather_nd(pred_box_reshape, fea_map_inds[i])
 
-        # 3. object classfication and calculate loss
-        shape_obj_cls = tf.concat([shape_ind, tf.convert_to_tensor([[anchor_set_size, voc_classes_num]])], 1)
-        shape_obj_cls = tf.squeeze(shape_obj_cls)
-        pred_obj_cls_reshape = tf.reshape(pred_obj_cls.outputs, shape_obj_cls)
-        pred_obj_cls_used = tf.gather_nd(pred_obj_cls_reshape, fea_map_inds)
+            box_diff = tf.subtract(pred_box_use, box_reg[i])
+            box_diff_abs = tf.abs(box_diff)
+            y1 = 0.5 * box_diff_abs ** 2  # smooth L1 loss
+            y2 = box_diff_abs - 0.5
+            loss_box_i = tf.where(tf.less(box_diff_abs, tf.ones_like(box_diff_abs)), y1, y2, name='loss_box')
 
-        obj_cls_label = tf.argmax(object_cls, axis=1)
-        loss_obj_cls = tl.cost.cross_entropy(pred_obj_cls_used, obj_cls_label, name='loss_obj_cls')
-        loss_obj_cls = tf.reduce_sum(loss_obj_cls) / FLAGS.batch_size  # about
+            ## 负样本不计算box回归
+            loss_box_i = tf.where(tf.less(box_label, tf.ones_like(box_label)), tf.zeros_like(loss_box_i), loss_box_i,
+                            'loss_box_' + i)
+            loss_box_i = tf.reduce_sum(loss_box_i) / FLAGS.batch_size  # about 3
+            loss_box.append(loss_box_i)
+
+            # 3. object classfication and calculate loss  [image_ind, fea_map_w, fea_map_h, anchors, voc_classes_num]
+            shape_obj_cls = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, voc_classes_num])], axis=0)
+            pred_obj_cls_reshape = tf.reshape(pred_obj_cls_i.outputs, shape_obj_cls)
+            pred_obj_cls_used = tf.gather_nd(pred_obj_cls_reshape, fea_map_inds[i])
+
+            obj_cls_label_i = tf.argmax(object_cls[i], axis=1)
+            loss_obj_cls_i = tl.cost.cross_entropy(pred_obj_cls_used, obj_cls_label_i, name='loss_obj_cls')
+            loss_obj_cls_i = tf.reduce_sum(loss_obj_cls_i) / FLAGS.batch_size  # about 0.07
+            loss_obj_cls.append(loss_obj_cls_i)
+            obj_cls_label.append(obj_cls_label_i)
 
         # TODO: loss 添加 box reg loss和类别预测loss
         # loss = 300 * loss_cls + loss_box + 100 * loss_obj_cls
-        loss = loss_cls + loss_box + loss_obj_cls
+        loss = sum(loss_cls) + sum(loss_box) + sum(loss_obj_cls)
         cost = loss
 
-        return pred_cls, pred_box, pred_obj_cls, loss, cost, loss_cls, loss_box, loss_obj_cls, conv5_3, obj_cls_label
+        return pred_cls, pred_box, pred_obj_cls, loss, cost, \
+               sum(loss_cls), sum(loss_box), sum(loss_obj_cls), conv5_3, obj_cls_label
 
 
 def process_one_image(data):
@@ -268,8 +304,8 @@ def batch_preprocess(train_data_batch):
     :param train_data_batch:
     :return:
     """
-    x_train_batch = [] #[FLAGS.batch_size, None, None, 3]
-    fea_map_inds_batch = [[]] * ssd_anchors_layers_num  #[ssd_anchors_layers_num, None, 4]
+    x_train_batch = []  # [FLAGS.batch_size, None, None, 3]
+    fea_map_inds_batch = [[]] * ssd_anchors_layers_num  # [ssd_anchors_layers_num, None, 4]
     box_reg_batch = [[]] * ssd_anchors_layers_num  # [ssd_anchors_layers_num, None, 4]
     box_class_batch = [[]] * ssd_anchors_layers_num  # [ssd_anchors_layers_num, None, 2]
     object_class_batch = [[]] * ssd_anchors_layers_num  # [ssd_anchors_layers_num, None, voc_classes_num]
@@ -309,7 +345,8 @@ def train_faster_rcnn(FLAGS):
     # 3.build graph：including loss function，learning rate decay，optimization operation
     print('start build graph...')
     x_train = tf.placeholder(tf.float32, shape=[FLAGS.batch_size, None, None, 3], name='x_train')
-    fea_map_inds = tf.placeholder(tf.int32, shape=[ssd_anchors_layers_num, None, 4], name='fea_map_inds')  # [Image_ind, W_ind, H_ind, k_ind]
+    fea_map_inds = tf.placeholder(tf.int32, shape=[ssd_anchors_layers_num, None, 4],
+                                  name='fea_map_inds')  # [Image_ind, W_ind, H_ind, k_ind]
     box_reg = tf.placeholder(tf.float32, shape=[ssd_anchors_layers_num, None, 4], name='box_reg')
     box_class = tf.placeholder(tf.int16, shape=[ssd_anchors_layers_num, None, 2], name='box_class')
     object_class = tf.placeholder(tf.int16, shape=[ssd_anchors_layers_num, None, voc_classes_num], name='object_class')
@@ -317,8 +354,6 @@ def train_faster_rcnn(FLAGS):
     pred_cls_train, pred_box_train, pred_obj_cls_train, loss_train, cost_train, loss_cls_train, loss_box_train, loss_obj_cls_train, conv5_3, obj_cls_label_train = faster_rcnn_model(
             x_input=x_train, reuse=False, is_training=True, FLAGS=FLAGS, fea_map_inds=fea_map_inds,
             box_reg=box_reg, cls=box_class, object_cls=object_class, cal_loss=True)  # train
-
-
 
     pred_cls_pred, pred_box_pred, pred_obj_cls_pred, loss_pred, cost_pred, loss_cls_pred, loss_box_pred, loss_obj_cls_pred, _, obj_cls_label_pred = faster_rcnn_model(
             x_input=x_train, reuse=True, is_training=False, FLAGS=FLAGS, fea_map_inds=fea_map_inds,
@@ -457,8 +492,8 @@ def train_faster_rcnn(FLAGS):
 def test_one_image(model_dir, image_path):
     print("start test faster-rcnn model")
     # TODO: load pretrained model and run test
-    F = collections.namedtuple('F', {'init_scale','keep_prob','batch_size'})
-    FLAGS = F(init_scale = 0.01, keep_prob = 1.0, batch_size = 1)
+    F = collections.namedtuple('F', {'init_scale', 'keep_prob', 'batch_size'})
+    FLAGS = F(init_scale=0.01, keep_prob=1.0, batch_size=1)
 
     x_test = tf.placeholder(tf.float32, shape=[1, None, None, 3], name='x_test')
     pred_cls, pred_box, pred_obj_cls, conv5_3 = faster_rcnn_model(
@@ -478,15 +513,17 @@ def test_one_image(model_dir, image_path):
         pred_cls_shape = tf.shape(pred_cls_output)
 
         anchor_set_size = 9
-        pred_cls_size = tf.concat([pred_cls_shape[0:3],tf.convert_to_tensor([anchor_set_size, 2])], axis=0)
+        pred_cls_size = tf.concat([pred_cls_shape[0:3], tf.convert_to_tensor([anchor_set_size, 2])], axis=0)
         pred_cls_reshape = tf.reshape(pred_cls_output, pred_cls_size)
-        pred_box_size = tf.concat([pred_cls_shape[0:3],tf.convert_to_tensor([anchor_set_size, 4])], axis=0)
+        pred_box_size = tf.concat([pred_cls_shape[0:3], tf.convert_to_tensor([anchor_set_size, 4])], axis=0)
         pred_box_reshape = tf.reshape(pred_box_output, pred_box_size)
-        pred_obj_cls_size = tf.concat([pred_cls_shape[0:3],tf.convert_to_tensor([anchor_set_size, voc_classes_num])], axis=0)
+        pred_obj_cls_size = tf.concat([pred_cls_shape[0:3], tf.convert_to_tensor([anchor_set_size, voc_classes_num])],
+                                      axis=0)
         # pred_obj_cls_reshape = tf.reshape(pred_obj_cls_output, pred_obj_cls_size)
         pred_obj_cls_reshape = tf.reshape(pred_obj_cls_output, [-1, voc_classes_num])
-        pred_cls_reshape_arg_max = tf.argmax(pred_obj_cls_reshape, axis = 1)
-        pred_cls_foreground_ind = tf.greater(pred_cls_reshape_arg_max, tf.zeros_like(pred_cls_reshape_arg_max, dtype=tf.int64))
+        pred_cls_reshape_arg_max = tf.argmax(pred_obj_cls_reshape, axis=1)
+        pred_cls_foreground_ind = tf.greater(pred_cls_reshape_arg_max,
+                                             tf.zeros_like(pred_cls_reshape_arg_max, dtype=tf.int64))
         pred_cls_foreground_ind = tf.where(pred_cls_foreground_ind)
         pred_cls_foreground = tf.gather_nd(pred_cls_reshape_arg_max, pred_cls_foreground_ind)
 
@@ -495,7 +532,7 @@ def test_one_image(model_dir, image_path):
         fetches['pred_box'] = pred_box_reshape
         fetches['pred_obj_cls'] = pred_obj_cls_reshape
         fetches['pred_cls_reshape_arg_max'] = pred_cls_reshape_arg_max
-        feed_dict = {x_test : [image]}
+        feed_dict = {x_test: [image]}
 
         result = sess.run(fetches, feed_dict=feed_dict)
         print(result['pred_box'].shape)
@@ -503,13 +540,11 @@ def test_one_image(model_dir, image_path):
         # print(result['pred_cls'])
         obj_set = set()
         for i in result['pred_cls_reshape_arg_max']:
-            if i>0:
+            if i > 0:
                 obj_set.add(voc_classes[i])
         print(','.join(obj_set))
 
 
 if __name__ == '__main__':
-    test_one_image('E://data/faster_rcnn_model/model-9999','E://data/VOCdevkit/VOC2007/JPEGImages/000044.jpg')
+    test_one_image('E://data/faster_rcnn_model/model-9999', 'E://data/VOCdevkit/VOC2007/JPEGImages/000044.jpg')
     # test_one_image('E://data/faster_rcnn_model/model-9999','E://data/VOC_data/000039_2.jpg')
-
-
