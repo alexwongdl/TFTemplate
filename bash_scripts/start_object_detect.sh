@@ -1,7 +1,7 @@
 #!/bin/bash
 
-python MainEntryFaster_RCNN.py \
-    --task=train_faster_rcnn \
+python MainEntryObject_detect.py \
+    --task=train_ssd \
     --is_training=True \
     --max_iter=200000 \
     --batch_size=16 \

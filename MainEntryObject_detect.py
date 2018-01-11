@@ -14,7 +14,7 @@ import os
 import argparse
 
 from myutil.myprint import *
-from examples import testdetector
+from examples import ssd
 
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
@@ -57,9 +57,9 @@ if __name__ == '__main__':
     FLAGS = parser.parse_args()
     arg_parse_print(FLAGS)
 
-    if FLAGS.task == 'train_faster_rcnn':
+    if FLAGS.task == 'train_ssd':
         print('train faster rcnn model.')
-        testdetector.train_faster_rcnn(FLAGS)
-    elif FLAGS.task == 'test_faster_rcnn':
+        ssd.train_faster_rcnn(FLAGS)
+    elif FLAGS.task == 'train_ssd':
         print('test faster rcnn model.')
         # test_rnn(FLAGS)
