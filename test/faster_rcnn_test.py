@@ -203,6 +203,26 @@ def decode_box():
     c_value = sess.run([c])
     print(c_value)
 
+def fetch_list():
+    a = tf.convert_to_tensor([[1,2,3,4],[5,6,7,8]])
+    b_list = []
+    for i in range(4):
+        b_list.append(tf.concat([a, tf.convert_to_tensor([[1,2,3,4]])], axis=0))
+    sess = tf.Session()
+    result = sess.run([b_list])
+    print(result)
+
+def get_nonzero_values():
+    input = np.array([[1,0,3,5,0,8,6]])
+    X = tf.placeholder(tf.int32,[None,7])
+    zeros = tf.cast(tf.zeros_like(X),dtype=tf.bool)
+    ones = tf.cast(tf.ones_like(X),dtype=tf.bool)
+    loc = tf.where(input!=0,ones,zeros)
+    result=tf.boolean_mask(input,loc)
+    with tf.Session() as sess:
+        out = sess.run([result],feed_dict={X:input})
+        print (np.array(out))
+
 if __name__ == '__main__':
     print("test tensorflow functions...")
     # test_tensor_index()
@@ -217,5 +237,7 @@ if __name__ == '__main__':
     # test_numpy_random_batch()
     # plot_smooth_L1()
     # test_arr_part()
-    test_gather()
+    # test_gather()
     # decode_box()
+    # fetch_list()
+    get_nonzero_values()

@@ -36,7 +36,21 @@ def ssd_predict_layer(network, anchor_set_size, layer_num):
     pred_obj_cls = tl.layers.Conv2d(network, n_filter=voc_classes_num * anchor_set_size, filter_size=(1, 1),
                                     strides=(1, 1), padding='SAME', name='obj_cls_pred_' + str(layer_num))
 
-    return pred_cls, pred_box, pred_obj_cls
+    shape_ind = tf.shape(pred_cls.outputs)  # [image_ind, fea_map_w, fea_map_h, anchors * 2]
+    # 1. cls reshape
+    shape_cls = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, 2])], axis=0)
+    pred_cls_reshape = tf.reshape(pred_cls.outputs, shape_cls)
+
+    # 2. box_reg reshape
+    shape_box = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, 4])], axis=0)
+    pred_box_reshape = tf.reshape(pred_box.outputs, shape_box)
+
+    # 3. object classfication reshape
+    shape_obj_cls = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, voc_classes_num])], axis=0)
+    pred_obj_cls_reshape = tf.reshape(pred_obj_cls.outputs, shape_obj_cls)
+
+    # return pred_cls, pred_box, pred_obj_cls
+    return pred_cls, pred_box, pred_obj_cls, pred_cls_reshape, pred_box_reshape, pred_obj_cls_reshape
 
 
 def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_inds=None, box_reg=None, cls=None,
@@ -120,9 +134,14 @@ def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_ind
             # vgg16_net = network
 
         with tf.name_scope('rpn') as scope:
+            pred_cls_outputs = []
+            pred_box_outputs = []
+            pred_obj_cls_outputs = []
+
             pred_cls = []
             pred_box = []
             pred_obj_cls = []
+
             """ ssd_conv_0 """
             network = tl.layers.MaxPool2d(conv5_3, filter_size=(2, 2), strides=(2, 2),
                                           padding='SAME', name='pool5')
@@ -142,7 +161,11 @@ def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_ind
             network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
                                        padding='SAME', name='ssd_conv1_2')
             """ ssd__pred_conv_1 """
-            pred_cls_1, pred_box_1, pred_obj_cls_1 = ssd_predict_layer(network, anchor_set_size, 1)
+            pred_cls_1, pred_box_1, pred_obj_cls_1, pred_cls_1_outputs, pred_box_1_outputs, pred_obj_cls_1_outputs = ssd_predict_layer(network, anchor_set_size, 1)
+            pred_cls_outputs.append(pred_cls_1_outputs)
+            pred_box_outputs.append(pred_box_1_outputs)
+            pred_obj_cls_outputs.append(pred_obj_cls_1_outputs)
+
             pred_cls.append(pred_cls_1)
             pred_box.append(pred_box_1)
             pred_obj_cls.append(pred_obj_cls_1)
@@ -157,7 +180,11 @@ def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_ind
             network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
                                        padding='SAME', name='ssd_conv2_2')
             """ ssd__pred_conv_2 """
-            pred_cls_2, pred_box_2, pred_obj_cls_2 = ssd_predict_layer(network, anchor_set_size, 2)
+            pred_cls_2, pred_box_2, pred_obj_cls_2, pred_cls_2_outputs, pred_box_2_outputs, pred_obj_cls_2_outputs = ssd_predict_layer(network, anchor_set_size, 2)
+            pred_cls_outputs.append(pred_cls_2_outputs)
+            pred_box_outputs.append(pred_box_2_outputs)
+            pred_obj_cls_outputs.append(pred_obj_cls_2_outputs)
+
             pred_cls.append(pred_cls_2)
             pred_box.append(pred_box_2)
             pred_obj_cls.append(pred_obj_cls_2)
@@ -172,7 +199,11 @@ def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_ind
             network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
                                        padding='SAME', name='ssd_conv3_2')
             """ ssd__pred_conv_3 """
-            pred_cls_3, pred_box_3, pred_obj_cls_3 = ssd_predict_layer(network, anchor_set_size, 3)
+            pred_cls_3, pred_box_3, pred_obj_cls_3, pred_cls_3_outputs, pred_box_3_outputs, pred_obj_cls_3_outputs = ssd_predict_layer(network, anchor_set_size, 3)
+            pred_cls_outputs.append(pred_cls_3_outputs)
+            pred_box_outputs.append(pred_box_3_outputs)
+            pred_obj_cls_outputs.append(pred_obj_cls_3_outputs)
+
             pred_cls.append(pred_cls_3)
             pred_box.append(pred_box_3)
             pred_obj_cls.append(pred_obj_cls_3)
@@ -187,7 +218,11 @@ def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_ind
             network = tl.layers.Conv2d(network, n_filter=256, filter_size=(3, 3), strides=(1, 1), act=tf.nn.relu,
                                        padding='SAME', name='ssd_conv4_2')
             """ ssd__pred_conv_4 """
-            pred_cls_4, pred_box_4, pred_obj_cls_4 = ssd_predict_layer(network, anchor_set_size, 4)
+            pred_cls_4, pred_box_4, pred_obj_cls_4, pred_cls_4_outputs, pred_box_4_outputs, pred_obj_cls_4_outputs = ssd_predict_layer(network, anchor_set_size, 4)
+            pred_cls_outputs.append(pred_cls_4_outputs)
+            pred_box_outputs.append(pred_box_4_outputs)
+            pred_obj_cls_outputs.append(pred_obj_cls_4_outputs)
+
             pred_cls.append(pred_cls_4)
             pred_box.append(pred_box_4)
             pred_obj_cls.append(pred_obj_cls_4)
@@ -202,25 +237,25 @@ def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_ind
             #                                 strides=(1, 1), padding='SAME', name='obj_cls_pred')
 
         if not cal_loss:  ##测试阶段，不需要计算损失函数
-            return pred_cls, pred_box, pred_obj_cls, conv5_3
+            return pred_cls_outputs, pred_box_outputs, pred_obj_cls_outputs, conv5_3
 
         """ 损失函数 """
         loss_cls = []
         loss_box = []
         loss_obj_cls = []
         obj_cls_label = []
-        assert ssd_anchors_layers_num == len(pred_cls)
+        assert ssd_anchors_layers_num == len(pred_cls_outputs)
         for i in range(ssd_anchors_layers_num):
-            pred_cls_i = pred_cls[i]
-            pred_box_i = pred_box[i]
-            pred_obj_cls_i = pred_obj_cls[i]
+            pred_cls_i = pred_cls_outputs[i]
+            pred_box_i = pred_box_outputs[i]
+            pred_obj_cls_i = pred_obj_cls_outputs[i]
 
-            shape_ind = tf.shape(pred_cls_i.outputs)  # [image_ind, fea_map_w, fea_map_h, anchors * 2]
+            # shape_ind = tf.shape(pred_cls_i)  # [image_ind, fea_map_w, fea_map_h, anchors * 2]
 
             # 1. cls reshape and calculate loss [image_ind, fea_map_w, fea_map_h, anchors, 2]
-            shape_cls = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, 2])], axis=0)
-            pred_cls_reshape = tf.reshape(pred_cls_i.outputs, shape_cls)
-            pred_cls_use = tf.gather_nd(pred_cls_reshape, fea_map_inds[i])
+            # shape_cls = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, 2])], axis=0)
+            # pred_cls_reshape = tf.reshape(pred_cls_i, shape_cls)
+            pred_cls_use = tf.gather_nd(pred_cls_i, fea_map_inds[i])
 
             box_label = tf.argmax(cls[i], axis=1)
             loss_cls_i = tl.cost.cross_entropy(pred_cls_use, box_label, name='loss_cls_' + str(i))
@@ -228,9 +263,9 @@ def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_ind
             loss_cls.append(loss_cls_i)
 
             # 2. box_reg reshape and calculate loss [image_ind, fea_map_w, fea_map_h, anchors, 4]
-            shape_box = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, 4])], axis=0)
-            pred_box_reshape = tf.reshape(pred_box_i.outputs, shape_box)
-            pred_box_use = tf.gather_nd(pred_box_reshape, fea_map_inds[i])
+            # shape_box = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, 4])], axis=0)
+            # pred_box_reshape = tf.reshape(pred_box_i, shape_box)
+            pred_box_use = tf.gather_nd(pred_box_i, fea_map_inds[i])
 
             box_diff = tf.subtract(pred_box_use, box_reg[i])
             box_diff_abs = tf.abs(box_diff)
@@ -245,13 +280,21 @@ def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_ind
             loss_box.append(loss_box_i)
 
             # 3. object classfication and calculate loss  [image_ind, fea_map_w, fea_map_h, anchors, voc_classes_num]
-            shape_obj_cls = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, voc_classes_num])], axis=0)
-            pred_obj_cls_reshape = tf.reshape(pred_obj_cls_i.outputs, shape_obj_cls)
-            pred_obj_cls_used = tf.gather_nd(pred_obj_cls_reshape, fea_map_inds[i])
+            # shape_obj_cls = tf.concat([shape_ind[0:3], tf.convert_to_tensor([anchor_set_size, voc_classes_num])], axis=0)
+            # pred_obj_cls_reshape = tf.reshape(pred_obj_cls_i, shape_obj_cls)
+            pred_obj_cls_used = tf.gather_nd(pred_obj_cls_i, fea_map_inds[i])
 
             obj_cls_label_i = tf.argmax(object_cls[i], axis=1)
-            loss_obj_cls_i = tl.cost.cross_entropy(pred_obj_cls_used, obj_cls_label_i, name='loss_obj_cls_' + str(i))
-            loss_obj_cls_i = tf.reduce_sum(loss_obj_cls_i) / FLAGS.batch_size  # about 0.07
+            # loss_obj_cls_i = tl.cost.cross_entropy( pred_obj_cls_used, obj_cls_label_i, name='loss_obj_cls_' + str(i))
+            loss_obj_cls_i = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=obj_cls_label_i, logits=pred_obj_cls_used, name='loss_obj_cls_' + str(i))
+
+            zeros = tf.cast(tf.zeros_like(obj_cls_label_i),dtype=tf.bool)
+            ones = tf.cast(tf.ones_like(obj_cls_label_i),dtype=tf.bool)
+            loss_obj_cls_i_mask = tf.where(tf.less(obj_cls_label_i, tf.ones_like(obj_cls_label_i)), zeros, ones,'loss_obj_cls_pos_' + str(i))  # 正样本的损失
+            loss_obj_cls_i_pos = tf.reduce_mean(tf.boolean_mask(loss_obj_cls_i, loss_obj_cls_i_mask))
+
+            # loss_obj_cls_i = tf.reduce_mean(loss_obj_cls_i) # about 0.07
+            loss_obj_cls_i = tf.reduce_mean(loss_obj_cls_i) + 2 * loss_obj_cls_i_pos # about 0.07
             loss_obj_cls.append(loss_obj_cls_i)
             obj_cls_label.append(obj_cls_label_i)
 
@@ -260,12 +303,40 @@ def ssd_model(x_input, reuse, is_training, FLAGS, anchor_set_size=3, fea_map_ind
         sum_loss_cls = sum(loss_cls)
         sum_loss_box = sum(loss_box)
         sum_loss_obj_cls = sum(loss_obj_cls)
-        loss = sum_loss_cls + 0.1 * sum_loss_box + sum_loss_obj_cls
+        loss = sum_loss_cls + 0.1 * sum_loss_box +  sum_loss_obj_cls
         cost = loss
 
-        return pred_cls, pred_box, pred_obj_cls, loss, cost, \
+        return pred_cls, pred_box, pred_obj_cls, pred_cls_outputs, pred_box_outputs, pred_obj_cls_outputs, loss, cost, \
                sum_loss_cls, sum_loss_box, sum_loss_obj_cls, conv5_3, obj_cls_label
 
+
+def my_cross_entropy(output, target, name=None):
+    """It is a softmax cross-entropy operation, returns the TensorFlow expression of cross-entropy of two distributions, implement
+    softmax internally. See ``tf.nn.sparse_softmax_cross_entropy_with_logits``.
+
+    Parameters
+    ----------
+    output : Tensorflow variable
+        A distribution with shape: [batch_size, n_feature].
+    target : Tensorflow variable
+        A batch of index with shape: [batch_size, ].
+    name : string
+        Name of this loss.
+
+    Examples
+    --------
+    >>> ce = tl.cost.cross_entropy(y_logits, y_target_logits, 'my_loss')
+
+    References
+    -----------
+    - About cross-entropy: `wiki <https://en.wikipedia.org/wiki/Cross_entropy>`_.\n
+    - The code is borrowed from: `here <https://en.wikipedia.org/wiki/Cross_entropy>`_.
+    """
+    # try: # old
+    #     return tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=output, targets=target))
+    # except: # TF 1.0
+    assert name is not None, "Please give a unique name to tl.cost.cross_entropy for TF1.0+"
+    return tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target, logits=output, name=name))
 
 def process_one_image(data):
     result = {}
@@ -354,11 +425,13 @@ def train_faster_rcnn(FLAGS):
     box_class = tf.placeholder(tf.int16, shape=[ssd_anchors_layers_num, None, 2], name='box_class')
     object_class = tf.placeholder(tf.int16, shape=[ssd_anchors_layers_num, None, voc_classes_num], name='object_class')
 
-    pred_cls_train, pred_box_train, pred_obj_cls_train, loss_train, cost_train, loss_cls_train, loss_box_train, loss_obj_cls_train, conv5_3, obj_cls_label_train = ssd_model(
+    pred_cls_train, pred_box_train, pred_obj_cls_train, pred_cls_outputs_train, pred_box_outputs_train, pred_obj_cls_outputs_train,\
+    loss_train, cost_train, loss_cls_train, loss_box_train, loss_obj_cls_train, conv5_3, obj_cls_label_train = ssd_model(
             x_input=x_train, reuse=False, is_training=True, FLAGS=FLAGS, fea_map_inds=fea_map_inds,
             box_reg=box_reg, cls=box_class, object_cls=object_class, cal_loss=True)  # train
 
-    pred_cls_pred, pred_box_pred, pred_obj_cls_pred, loss_pred, cost_pred, loss_cls_pred, loss_box_pred, loss_obj_cls_pred, _, obj_cls_label_pred = ssd_model(
+    pred_cls_pred, pred_box_pred, pred_obj_cls_pred, pred_cls_outputs_pred, pred_box_outputs_pred, pred_obj_cls_outputs_pred,\
+    loss_pred, cost_pred, loss_cls_pred, loss_box_pred, loss_obj_cls_pred, _, obj_cls_label_pred = ssd_model(
             x_input=x_train, reuse=True, is_training=False, FLAGS=FLAGS, fea_map_inds=fea_map_inds,
             box_reg=box_reg, cls=box_class, object_cls=object_class, cal_loss=True)  # train)  # validate/test
 
@@ -434,12 +507,13 @@ def train_faster_rcnn(FLAGS):
             if (step + 1) % FLAGS.print_info_freq == 0:
                 fetches['cost'] = cost_train
                 fetches['learning_rate'] = learning_rate
-                for i in range(ssd_anchors_layers_num):
-                    fetches['pred_cls_train_' + str(i)] = pred_cls_train[i].outputs
+                # for i in range(ssd_anchors_layers_num):
+                #     fetches['pred_cls_train_' + str(i)] = pred_cls_train[i]
                 fetches['loss_cls_train'] = loss_cls_train
                 fetches['loss_box_train'] = loss_box_train
                 fetches['loss_obj_cls_train'] = loss_obj_cls_train
-                fetches['obj_cls_label_train'] = obj_cls_label_train
+                fetches['obj_cls_label_train'] = obj_cls_label_train # label
+                fetches['pred_obj_cls_outputs_train'] = pred_obj_cls_outputs_train # predict result
 
             if (step + 1) % FLAGS.summary_freq == 0:
                 # fetches['summary_op'] = sv.summary_op  # sv.summary_op = summary.merge_all()
@@ -466,6 +540,9 @@ def train_faster_rcnn(FLAGS):
                 print("obj_cls_label:{}".format(",".join(obj_set)))
                 # pred_value = result['pred_cls_train']
                 # print(pred_value[0:50])
+                predict_cls_set = predict_to_class_name_set(result['pred_obj_cls_outputs_train'])
+                print("obj_cls_predict:{}".format(",".join(predict_cls_set)))
+                # print(result['pred_obj_cls_outputs_train'][2][0:10])
 
             if (result['global_step'] + 1) % FLAGS.save_model_freq == 0:
                 print("save model")
@@ -566,6 +643,33 @@ def test_batch_process():
     x_train_batch, fea_map_inds_batch, box_reg_batch, box_class_batch, object_class_batch = \
         batch_preprocess(train_data_set[permutation_ind[0]])
     print(box_class_batch)
+
+def predict_to_class_name_set(predict):
+    """
+    预测结果转化为类名set集合
+    :param predict:
+    :return:
+    """
+    # predict = np.array(predict)
+    # predict_shape = predict.shape
+    # print(predict_shape)
+    # predict = np.reshape(predict, newshape=(predict_shape[0] * predict_shape[1] * predict_shape[2] * predict_shape[3], predict_shape[4]))
+    # class_name_set = set()
+    # for predict_temp in predict:
+    #     index = np.argmax(predict_temp)
+    #     class_name_set.add(voc_classes[index])
+    # return class_name_set
+    class_name_set = set()
+    for image in predict:
+        for wimage in image:
+            for himage in wimage:
+                for anchors in himage:
+                    for anchor in anchors:
+                        if( len(anchor) != voc_classes_num):
+                            print('len anchor != voc_classes_num:' + anchor)
+                        index = np.argmax(anchor)
+                        class_name_set.add(voc_classes[index])
+    return class_name_set
 
 if __name__ == '__main__':
     # test_one_image('E://data/faster_rcnn_model/model-19999', 'E://data/VOCdevkit/VOC2007/JPEGImages/000044.jpg')
