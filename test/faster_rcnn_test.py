@@ -223,6 +223,42 @@ def get_nonzero_values():
         out = sess.run([result],feed_dict={X:input})
         print (np.array(out))
 
+def test_arr():
+    length = 3
+    fea_map_inds_batch = [[],[],[]]
+    print(fea_map_inds_batch[1])
+    for i in range(length):
+        if i == 2:
+            fea_map_inds_batch[i].extend([0,1,2,3])
+    print(fea_map_inds_batch)
+
+    negative_label = [0] * 21
+    negative_label[0] = 1
+    print(negative_label)
+
+
+def test():
+    str = '0.3042498819144103,0.20476117337838895,0.21719539894943102,0.38694691624627925,0.439820473380658,0.30495317861408927,0.2317912361449736,0.23876461141176422,0.02935335914618486,0.017870509490888097,0.020418725961011994,0.04720642058950474,0.07258404554925826,0.08330419175994523,0.03394149880271002,0.023326928480506433,0.006858298898792115,0.006678120021276475,0.009209223026271054,0.014491760233770598,0.012499995367874207,0.0070682862112403065,0.0057898072352677915,0.004394987710605141,0.1648415168062271,0.10057785094726568,0.11287694944114601,0.16464250835201985,0.19532339009329888,0.11597133704898224,0.08924400707847203,0.10333382667598622,0.10319670706319475,0.07963469291894555,0.07469050052099618,0.16060622707095665,0.15941304237026435,0.09860936359393167,0.10281592302853798,0.10770886854466462'
+    sub_strs = str.split(",")
+    sum_a = 0
+    for s in sub_strs:
+        sum_a += float(s) * float(s)
+    print(len(sub_strs))
+    print(sum_a)
+
+def test_gather_nd():
+    a = np.random.random((16,8,8,3,21))
+    print(a.shape)
+    index = [[7, 3, 3, 1],[10, 3, 3, 2]]
+    # index = [[0, 0], [1, 1]]
+    a_p = tf.placeholder(dtype=tf.float32, shape=[16,8,8,3,21], name='a_p')
+    index_p = tf.placeholder(dtype=tf.int32, shape=[None, 4], name='index_p')
+
+    gathered_data = tf.gather_nd(params=a_p, indices=index_p)
+    sess = tf.Session()
+    result = sess.run([gathered_data], feed_dict={a_p:a, index_p:index})
+    print(result)
+
 if __name__ == '__main__':
     print("test tensorflow functions...")
     # test_tensor_index()
@@ -240,4 +276,7 @@ if __name__ == '__main__':
     # test_gather()
     # decode_box()
     # fetch_list()
-    get_nonzero_values()
+    # get_nonzero_values()
+    # test_arr()
+    test()
+    test_gather_nd()

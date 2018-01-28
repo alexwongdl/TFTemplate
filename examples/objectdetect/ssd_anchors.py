@@ -77,15 +77,23 @@ def cal_ssd_anchors():
 
     anchor_base = 16
     # ssd_anchors_step_size.append(anchor_base * 1)  # 32 feature_map上每移动一步对应的像素
-    ssd_anchors_step_size.append(anchor_base * 2)  # 64
-    ssd_anchors_step_size.append(anchor_base * 4)  # 128
-    ssd_anchors_step_size.append(anchor_base * 8)  # 256
-    ssd_anchors_step_size.append(anchor_base * 16)  # 512
+    # ssd_anchors_step_size.append(anchor_base * 2)  # 64
+    # ssd_anchors_step_size.append(anchor_base * 4)  # 128
+    # ssd_anchors_step_size.append(anchor_base * 8)  # 256
+    # ssd_anchors_step_size.append(anchor_base * 16)  # 512
+    ssd_anchors_step_size.append(anchor_base * 4)  # 64
+    ssd_anchors_step_size.append(anchor_base * 8)  # 128
+    ssd_anchors_step_size.append(anchor_base * 16)  # 256
+    ssd_anchors_step_size.append(anchor_base * 32)  # 512
 
     # ssd_anchors_step_num.append(32 - 1)  # feature_map 上的移动步数
-    ssd_anchors_step_num.append(16 - 1)
-    ssd_anchors_step_num.append(8 - 1)
-    ssd_anchors_step_num.append(4 - 1)
+    # ssd_anchors_step_num.append(16 - 1)
+    # ssd_anchors_step_num.append(8 - 1)
+    # ssd_anchors_step_num.append(4 - 1)
+    # ssd_anchors_step_num.append(1)
+    ssd_anchors_step_num.append(8)
+    ssd_anchors_step_num.append(4)
+    ssd_anchors_step_num.append(2)
     ssd_anchors_step_num.append(1)
 
     # ssd_anchors.append(layer1)
@@ -137,7 +145,7 @@ def ssd_anchors_plot():
     print('ssd_anchors_step_num:{}'.format(len(ssd_anchors_step_num)))
     print('[[1,2,3]] * 2:{}'.format([[1,2,3]] * 2))
 
-    layer_num = 2
+    layer_num = 0
     anchors, anchor_area, anchors_step, anchors_step_num, _ = cal_ssd_anchors()
     layer_some = anchors[layer_num]
     print(layer_some)
