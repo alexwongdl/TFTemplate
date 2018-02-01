@@ -19,6 +19,7 @@ import tensorflow as tf
 import tensorlayer as tl
 from PIL import Image
 import random
+from scipy.misc import imread, imresize
 
 from examples.objectdetect import ssd_data_prepare
 from examples.objectdetect.ssd_anchors import ssd_anchors, ssd_anchors_step_num
@@ -391,7 +392,8 @@ negative_label[0] = 1
 def process_one_image(data):
     result = {}
     index = data['index']
-    image = Image.open(data['image_path'])
+    # image = Image.open(data['image_path'])
+    image = imread(data['image_path'], mode='RGB')
     result['image'] = np.array(image)
 
     fea_map_inds_batch = [[],[],[],[]]
