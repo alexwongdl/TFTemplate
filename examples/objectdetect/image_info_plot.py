@@ -105,8 +105,8 @@ def plot_train_data_processed(image_root_path, train_data_info_path):
         item['index'] = 0
         item_processed = process_one_image(item, image_root_path)
         gt_classes = item['gt_classes']
-        positive_anchors = item['positive_anchors']
-        # positive_anchors = item['negative_anchors']
+        # positive_anchors = item['positive_anchors']
+        positive_anchors = item['negative_anchors']
         img = item_processed['image']
         fea_map_inds_batch = item_processed['fea_map_inds']
         # print('fea_map_inds_batch:')

@@ -127,8 +127,8 @@ def process_one_image_roi(annotation_feature):
         anchor_step_num_temp = ssd_anchors_step_num[anchor_layer_index]
 
         # 计算这一层上的所有anchors
-        for w in range(anchor_step_num_temp):
-            for h in range(anchor_step_num_temp):
+        for w in range(1, anchor_step_num_temp):
+            for h in range(1, anchor_step_num_temp):
                 delt_x = anchor_step_size_temp * w
                 delt_y = anchor_step_size_temp * h
                 delta = np.array([[delt_x, delt_y, delt_x, delt_y]] * len(anchors_temp))
@@ -153,14 +153,14 @@ def process_one_image_roi(annotation_feature):
                     negative_anchors_layer.append(match)
         positive_num = len(positive_anchors_layer)
         negative_num = len(negative_anchors_layer)
-        try:
-            if negative_num > positive_num * 3:
-                negative_num_new = min(max(positive_num * 3, 10), negative_num)
-                # negative_num_new = min(max(positive_num * 3, negative_sample_max_num[anchor_layer_index]), negative_num)
-                ind = np.random.permutation(negative_num)
-                negative_anchors_layer = [negative_anchors_layer[i] for i in ind[0:negative_num_new]]
-        except Exception as e:
-            print('debug :positive_num:{}\t negative_num:{}'.format(positive_num, negative_num))
+        # try:
+        #     if negative_num > positive_num * 3:
+        #         negative_num_new = min(max(positive_num * 3, 10), negative_num)
+        #         # negative_num_new = min(max(positive_num * 3, negative_sample_max_num[anchor_layer_index]), negative_num)
+        #         ind = np.random.permutation(negative_num)
+        #         negative_anchors_layer = [negative_anchors_layer[i] for i in ind[0:negative_num_new]]
+        # except Exception as e:
+        #     print('debug :positive_num:{}\t negative_num:{}'.format(positive_num, negative_num))
 
         print('image:{}\tlayer:{}\tsize of positive_anchors:{}\t size of negative_anchors:{}'.
               format(annotation_feature['image_path'], anchor_layer_index, len(positive_anchors_layer),
@@ -256,9 +256,10 @@ def ssd_data_prepare_linux():
     print('len of roi_info:{}'.format(len(roi_info)))
     print(roi_info[0:3])
     print('load roi info done---------------------------------------')
+    os.makedirs(os.path.join(data_root, 'VOC_data'), exist_ok=True)
     aug_roi_info = img_aug.batch_image_augment(os.path.join(data_root, 'voc_roi_info.pkl'),
                                                os.path.join(data_root, 'aug_voc_roi_info.pkl'),
-                                               os.path.join(data_root, 'VOC_data'), repeat=5, thread_num=10)
+                                               os.path.join(data_root, 'VOC_data'), repeat=3, thread_num=10)
     print('aug roi info done---------------------------------------')
     train_info = generate_train_pathes(aug_roi_info, os.path.join(data_root, 'voc_train_data.pkl'), thread_num=10)
 

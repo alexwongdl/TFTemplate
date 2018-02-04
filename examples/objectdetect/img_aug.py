@@ -102,6 +102,8 @@ def cywh_norm_to_left_top_right_bottom(box_list, image_width, image_height):
 def _data_aug_fn(roi_info):
     image_path = roi_info['image_path']
     image = tl.vis.read_image(image_path)
+    # image = tl.vis.read_image(os.path.join('E://data/VOCdevkit/VOC2007/JPEGImages',os.path.basename(image_path)))
+
     image_width = roi_info['image_width']
     image_height = roi_info['image_height']
     clas = roi_info['gt_classes']
@@ -126,24 +128,30 @@ def _data_aug_fn(roi_info):
     ## resize到高宽合适的大小
     scale = np.max((output_im_size[1] / float(image.shape[1]),
                     output_im_size[0] / float(image.shape[0])))
+    # image, coords = tl.prepro.obj_box_imresize(image, coords,
+    #                                            [int(image.shape[0] * scale) + 2, int(image.shape[1] * scale) + 2],
+    #                                            is_rescale=True, interp='bicubic')
     image, coords = tl.prepro.obj_box_imresize(image, coords,
-                                               [int(image.shape[0] * scale) + 2, int(image.shape[1] * scale) + 2],
+                                               [output_im_size[1], output_im_size[0]],
                                                is_rescale=True, interp='bicubic')
     ## 几何增强 geometric transformation
     image, coords = tl.prepro.obj_box_left_right_flip(image,
                                                       coords, is_rescale=True, is_center=True, is_random=True)
-    image, clas, coords = tl.prepro.obj_box_shift(image, clas,
-                                                  coords, wrg=0.1, hrg=0.1, is_rescale=True,
-                                                  is_center=True, is_random=True)
-    image, clas, coords = tl.prepro.obj_box_zoom(image, clas,
-                                                 coords, zoom_range=(1 - jitter, 1 + jitter),
-                                                 is_rescale=True, is_center=True, is_random=True)
-    image, clas, coords = tl.prepro.obj_box_crop(image, clas, coords,
-                                                 wrg=output_im_size[1], hrg=output_im_size[0],
-                                                 is_rescale=True, is_center=True, is_random=True)
+    # image, clas, coords = tl.prepro.obj_box_shift(image, clas,
+    #                                               coords, wrg=0.1, hrg=0.1, is_rescale=True,
+    #                                               is_center=True, is_random=True)
+    # image, clas, coords = tl.prepro.obj_box_zoom(image, clas,
+    #                                              coords, zoom_range=(1 - jitter, 1 + jitter),
+    #                                              is_rescale=True, is_center=True, is_random=True)
+    # image, clas, coords = tl.prepro.obj_box_crop(image, clas, coords,
+    #                                              wrg=output_im_size[1], hrg=output_im_size[0],
+    #                                              is_rescale=True, is_center=True, is_random=True, thresh_wh=0.1)
+
     ## 光度增强 photometric transformation
-    image = tl.prepro.illumination(image, gamma=(0.5, 1.5),
-                                   contrast=(0.5, 1.5), saturation=(0.5, 1.5), is_random=True)
+    # image = tl.prepro.illumination(image, gamma=(0.5, 1.5),
+    #                                contrast=(0.5, 1.5), saturation=(0.5, 1.5), is_random=True)
+    image = tl.prepro.illumination(image, gamma=(0.8, 1.2),
+                                   contrast=(0.8, 1.2), saturation=(0.8, 1.2), is_random=True)
     # image = tl.prepro.adjust_hue(image, hout=0.1, is_offset=True,is_clip=True, is_random=True)
     # image = tl.prepro.pixel_value_scale(image, 0.1, [0, 255], is_random=True)
     ## 把数值范围从 [0, 255] 转到 [-1, 1] (可选)
@@ -185,7 +193,7 @@ def batch_image_augment(roi_info_path=None, save_path=None, image_save_dir=None,
         aug_roi_info_list = pickle.load(open(save_path, 'rb'))
         return aug_roi_info_list
 
-    os.mkdir(image_save_dir, exist_ok=True)
+    os.makedirs(image_save_dir, exist_ok=True)
     jitter = 0.2
     roi_info_list = detect_data_prepare.load_image_annotations(pickle_save_path=roi_info_path)
     new_roi_info_list = []
@@ -217,7 +225,7 @@ def test_tl_image_aug():
     :return:
     """
     roi_info = detect_data_prepare.load_image_annotations(pickle_save_path='E://data/voc_roi_info.pkl')
-    object0 = roi_info[70]
+    object0 = roi_info[45]
     print(object0)
 
     image_width = object0['image_width']
@@ -230,7 +238,7 @@ def test_tl_image_aug():
     xywh_to_box_list = cywh_norm_to_left_top_right_bottom(xywh_list,
                                                           image_width, image_height)
 
-    image = tl.vis.read_image(object0['image_path'])
+    image = tl.vis.read_image(os.path.join('E://data/VOCdevkit/VOC2007/JPEGImages',os.path.basename(object0['image_path'])))
     print('boxes.tolist---------')
     print(object0['boxes'].tolist())
     print('xywh_list------------------')
@@ -288,5 +296,5 @@ def test_tl_image_aug():
 if __name__ == '__main__':
     print("image_augment...")
     test_tl_image_aug()
-    batch_image_augment('E://data/voc_roi_info.pkl', 'E://data/aug_voc_roi_info.pkl', 'E://data/VOC_data', repeat=5,
-                        thread_num=4)
+    # batch_image_augment('E://data/voc_roi_info.pkl', 'E://data/aug_voc_roi_info.pkl', 'E://data/VOC_data', repeat=5,
+    #                     thread_num=4)
