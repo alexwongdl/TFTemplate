@@ -36,3 +36,6 @@ if __name__ == '__main__':
     test_numpy()
 
 
+    negative_label = [0] * 10
+    negative_label[0] = 1
+    print(negative_label)

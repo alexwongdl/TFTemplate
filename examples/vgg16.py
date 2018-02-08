@@ -62,6 +62,7 @@ pretrained model and descriptor: http://www.cs.toronto.edu/~frossard/post/vgg16/
 """
 import os
 import time
+import cv2
 
 import numpy as np
 import tensorflow as tf
@@ -163,8 +164,12 @@ for val in sorted( npz.items() ):
 
 tl.files.assign_params(sess, params, network)
 
-img1 = imread('laska.png', mode='RGB') # test data in github
-img1 = imresize(img1, (224, 224))
+# img1 = imread('laska.png', mode='RGB') # test data in github
+# img1 = imresize(img1, (224, 224))
+
+img1 = cv2.imread('laska.png') # test data in github
+img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB).astype(np.float32)
+img1 = cv2.resize(img1, (224, 224))
 
 start_time = time.time()
 prob = sess.run(probs, feed_dict={x: [img1]})[0]

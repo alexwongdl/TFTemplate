@@ -177,7 +177,7 @@ def ssd_anchors_plot():
     print('new_layer:')
     print(new_layer)
 
-    img = Image.open('E://data/test.JPG')
+    img = Image.open('test.JPG')
     img = img.resize((512, 512))
     plt.imshow(img)
     currentAxis = plt.gca()
