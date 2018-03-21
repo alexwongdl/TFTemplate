@@ -17,7 +17,7 @@ def image_to_bytes():
     图像转化成bytes并还原
     :return:
     """
-    img = cv2.imread('../data/imgs/running_man.jpg')
+    img = cv2.imread('imgs/running_man.jpg')
     img_shape = img.shape
     img_string = img.tostring()
     img_arr = np.fromstring(img_string, np.uint8)
@@ -34,7 +34,7 @@ def tfrecords_save():
     """
     tfrecords_path = 'tfrecords_example'
     tfwriter = tf.python_io.TFRecordWriter(tfrecords_path)
-    img = cv2.imread('../data/imgs/running_man.jpg')
+    img = cv2.imread('imgs/running_man.jpg')
     label = 1
     img_shape = img.shape
 

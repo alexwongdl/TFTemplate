@@ -50,20 +50,19 @@ def _parse_tfrecords_func(record):
     :param record:
     :return:
     """
-    features = {"img": tf.FixedLenFeature([],tf.string),
+    features = {"img": tf.FixedLenFeature((),tf.string, default_value = ''),
                 "label": tf.FixedLenFeature((), tf.int64, default_value=0),
                 "width": tf.FixedLenFeature((), tf.int64, default_value=0),
                 "height": tf.FixedLenFeature((), tf.int64, default_value=0),
                 "channel": tf.FixedLenFeature((), tf.int64, default_value=0)}
     parsed_features = tf.parse_single_example(record, features)
-    for keys in parsed_features:
-        print(keys)
+    for key in parsed_features:
+        print(key, type(parsed_features[key]))
 
-    print(type(features['img']))
-    print(dir(features['img']))
-    img = tf.decode_raw(features['img'], tf.uint8)  # TODO: fix the error
-    img_reshape = tf.reshape(img, (parsed_features['width'], parsed_features['height'], parsed_features['channel']))
-    return img_reshape, parsed_features['label']
+    print(type(parsed_features['img']))
+    img = tf.decode_raw(parsed_features['img'], tf.uint8)
+    img_reshape = tf.reshape(img, (tf.stack([parsed_features['width'], parsed_features['height'], parsed_features['channel']])))
+    return img, parsed_features['width'], parsed_features['height'], parsed_features['channel'], img_reshape
 
 def dataset_tfrecords():
     """
@@ -81,17 +80,12 @@ def dataset_tfrecords():
     sess.run(iterator.initializer)
 
     for i in range(1):
-        next_elem = sess.run(next_elem)
-        print(type(next_elem))
-        # print(next_elem['label'])
-        # print(next_elem['width'])
-        # print(next_elem['height'])
-        # print(next_elem['channel'])
-        # img = next_elem['img']
-        # print(len(img))
-        # img_reshape = np.reshape(img, (next_elem['width'], next_elem['height'], next_elem['channel']))
-        # print(img)
-        # print(img_reshape)
+        next_elem_value = sess.run(next_elem)
+        print(type(next_elem_value))
+        img, img_width, img_height, img_channel, img_reshape = next_elem_value
+        cv2.imshow('img_reshape', img_reshape)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     # dataset_one_shot()
