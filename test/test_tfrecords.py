@@ -12,6 +12,9 @@ def bytes_feature(value):
 def int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
+def float_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
 def image_to_bytes():
     """
     图像转化成bytes并还原
