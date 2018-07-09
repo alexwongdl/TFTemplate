@@ -152,10 +152,10 @@ tl.layers.initialize_global_variables(sess)
 network.print_params()
 network.print_layers()
 
-if not os.path.isfile("E://data/vgg16_weights.npz"):
-    print("Please download vgg16_weights.npz from : http://www.cs.toronto.edu/~frossard/post/vgg16/")
-    exit()
-npz = np.load('E://data/vgg16_weights.npz')
+# if not os.path.isfile("E://data/vgg16_weights.npz"):
+#     print("Please download vgg16_weights.npz from : http://www.cs.toronto.edu/~frossard/post/vgg16/")
+#     exit()
+npz = np.load('/Users/alexwang/Downloads/vgg16_weights.npz')
 
 params = []
 for val in sorted( npz.items() ):
